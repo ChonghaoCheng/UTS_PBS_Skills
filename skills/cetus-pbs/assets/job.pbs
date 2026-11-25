@@ -1,8 +1,8 @@
 #!/bin/bash
 #PBS -S /bin/bash
-#PBS -l select=1:ncpus=1:mem=2gb
-#PBS -l walltime=00:10:00
 #PBS -j oe
+# Supply workload-specific resources through qsub -l (see references/pbs.md).
+# This template defines no queue, CPU, memory, walltime or application defaults.
 set -euo pipefail
 umask 077
 : "${PBS_JOBID:?Submit this script through PBS}"
@@ -13,7 +13,7 @@ esac
 cd -- "$PBS_O_WORKDIR"
 run=$PWD
 index=${PBS_ARRAY_INDEX:-1}
-[[ $index =~ ^[1-9][0-9]*$ ]]
+[[ $index =~ ^[0-9]+$ ]]
 mkdir -p "$run/tasks/$index"
 attempt=$(mktemp -d "$run/tasks/$index/attempt-XXXXXXXX")
 exec >"$attempt/stdout.log" 2>"$attempt/stderr.log"
@@ -45,14 +45,16 @@ date -u +%FT%TZ >"$attempt/started_at"
 hostname >"$attempt/hostname"
 printf '%s\n' "$PBS_JOBID" >"$attempt/pbs_job_id"
 sha256sum -c SHA256SUMS
-# Override only to use another site-approved job-local scratch root.
-scratch=$(mktemp -d "${CETUS_SCRATCH_ROOT:-/scratch}/pbs-${USER}-XXXXXXXX")
+# Use an explicit approved work root, the execution environment's TMPDIR,
+# or a private directory inside this run. No site scratch path is assumed.
+work_root=${CETUS_SCRATCH_ROOT:-${TMPDIR:-$run}}
+[[ -d $work_root && -w $work_root ]]
+scratch=$(mktemp -d "$work_root/cetus-work-XXXXXXXX")
 printf '%s\n' "$scratch" >"$attempt/scratch_path"
 mkdir "$scratch/code" "$scratch/results"
 tar xf "$run/code.tar" -C "$scratch/code"
 cd "$scratch/code"
-# Keep these consistent with the requested ncpus and application worker count.
-export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+# Configure workload-specific processes/threads and runtime in command.sh.
 export RESULT_DIR="$scratch/results" TASK_INDEX="$index"
 # command.sh is frozen and checksummed alongside code.tar, not read from a live checkout.
 bash "$run/command.sh" "$index" "$RESULT_DIR"

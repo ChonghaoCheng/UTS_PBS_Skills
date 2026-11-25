@@ -1,38 +1,40 @@
 ---
 name: cetus-pbs
-description: Operate UTS Cetus through SSH and native PBS commands. Use for SSH setup, resource sizing, job scripts and arrays, monitoring, collecting logs and results, and rerunning failed tasks.
+description: Use UTS Cetus through SSH and native PBS commands for access setup, job scripts, resource requests, arrays, status checks, output collection and failed-task retries.
 ---
 
 # UTS Cetus PBS
 
-Use the host's file and terminal tools to follow this workflow from a desktop, IDE or terminal agent. The examples use Bash, Git, SSH, rsync and Python 3. On Windows, use a local WSL/Bash environment with those tools, or preserve the same isolation and transfer guarantees with equivalent local tools. Resolve relative reference and template paths from this skill's directory.
+Operate from the user's submission environment using the host's file and terminal tools. Keep the AI client outside Cetus. Use login nodes for lightweight inspection, transfer and scheduler commands; run compute-intensive programs through PBS. The examples use Bash, SSH, rsync, tar and SHA256 tools. Git and application runtimes are needed only for tasks that use them. On Windows, use the tools available in the actual Windows/WSL execution environment.
 
-Run the AI client on the local workstation. Keep AI clients off Cetus login and compute nodes, including PBS allocations. Use SSH/rsync from the workstation for remote operations. Limit the login node to lightweight inspection, transfer and scheduler commands; submit research computation and expensive tests/analysis through PBS.
+Read [SSH access](references/ssh.md) for connection setup and diagnosis. Read [PBS operations](references/pbs.md) for submission, arrays, status, collection or cancellation. Adapt [the job template](assets/job.pbs) to the requested workload. Resolve relative paths from this skill's directory.
 
-Read [SSH access](references/ssh.md) when setting up or diagnosing a connection. Read [PBS workflow](references/pbs.md) when preparing, submitting or collecting a run. Copy [the job template](assets/job.pbs) into a fresh run directory and adapt its resources and command launcher to the workload.
+## Discover the requested task
 
-## Prepare
+Match the user's requested operation and scope. A status or collection request does not authorize a new submission. For a run request, inspect the current task directory, its instructions, launch scripts, configuration and any existing PBS tooling. A Git repository, dataset, metrics file or particular application is not required. Reuse working tools and infer settings from evidence rather than asking the user to fill a standard research form.
 
-Treat a natural-language request as sufficient to begin discovery in the current repository. Read its instructions, workload configurations, launch scripts and existing PBS tooling, and inspect the existing SSH setup. Reuse working tools when they preserve the requirements below. Derive the code revision, entry point, arguments, input version and workload size from that evidence, including task-specific settings only when relevant. Generate run IDs, checksums and timestamps, and capture PBS receipts automatically rather than requesting them from the user.
+Determine the entry point, arguments, runtime/dependencies, inputs and expected outputs where applicable. Reuse the user's SSH alias, account and storage locations. Ask together only for execution-critical information that remains unavailable or ambiguous. Do not invent paths, credentials, workload parameters, queue names or resource requirements.
 
-For a minimal-run request, select one bounded representative case using the repository's documented smoke/small-run settings, existing resource requests and current queue limits. Report the chosen configuration and assumptions with the run. Ask together only for execution-critical values that remain missing or ambiguous, such as the intended experiment, dataset or account. Do not invent scientific parameters, input paths or credentials, and do not expand a minimal run into a sweep.
+A minimal or smoke run is appropriate when requested or agreed for setup diagnosis. Do not automatically reduce an existing workload, run an extra test job or expand a single task into a batch. Generate run identifiers and operational records without asking the user to provide them.
 
-Create a unique run ID. Freeze code, configuration and launchers in an independent snapshot with a manifest recording the commit, input identifiers and checksums. Git archive includes committed content subject to export attributes; separately stage required untracked files, submodule content and actual Git LFS data when needed. Queued work must not depend on later changes to a live checkout or mutable dataset.
+## Prepare an isolated run
 
-Keep durable inputs on shared storage. Use read-only, versioned paths or hashes and stage only the needed shard into node-local scratch for heavy I/O. Write logs and checkpoints to the durable run directory during long tasks because a hard kill can prevent final writeback.
+Create a unique run directory and freeze the files needed for this task, configuration and launchers. Copy or archive files independently of a live working directory. When Git applies, record the selected revision and account for needed uncommitted/untracked files, submodules and Git LFS content. Git archive alone captures committed content subject to export attributes. For other tasks, record the source files and snapshot checksums.
 
-## Allocate and submit
+Record the command, actual resource request, relevant input identifiers, snapshot/checksums, PBS receipt, times, exit status and collected files. Record input versions or hashes where useful; do not require a dataset for jobs without one. Use user-approved storage accessible to the selected compute nodes. Stage data into site-approved job-local storage when needed for I/O, and retain important outputs/checkpoints on durable storage. Choose paths from the current task and site guidance, not a previous user's layout.
 
-Run a minimal real workload first and check expected outputs. Size each subjob's CPU, RAM and walltime from representative cases, including startup and writeback. Query current limits with qstat -Qf. CPU allocation does not configure application parallelism; align workers and library threads with the requested ncpus. Request GPUs or multiple nodes only when supported by the application and queue.
+## Request resources and submit
 
-For independent tasks, use job arrays with a concurrency cap and separate index/attempt outputs. Freeze the mapping from each array index to its inputs and arguments. Group short cases and shard slow ones. Separate workloads with different resource requirements into different arrays.
+Check current queues and limits with qstat -Qf. Select CPU, RAM, walltime, GPUs, node count and software environment from the workload's configuration or measurements and current site policy. There is no universal queue or numeric resource default. Configure application processes and library threads in the launcher to match the allocation. Multi-node programs require a suitable distributed launcher.
 
-Submit once per run and save the PBS receipt. Use an exclusive submission marker as in the reference. If acceptance becomes uncertain after a connection failure, inspect the receipt or unique job name before considering a new submission. Do not automatically resubmit.
+For independent tasks, use arrays with a concurrency cap and a frozen index-to-input/argument mapping. Keep each index and attempt separate. Use different arrays for workloads with different resource requirements. Array ranges and concurrency must match the requested task set and queue limits.
 
-## Monitor and recover
+Submit once per run and save the receipt. Use an exclusive submission marker as in the reference. If acceptance becomes uncertain, inspect the receipt and scheduler state before deciding the next action. Do not automatically resubmit.
 
-Poll with an interval and finite deadline. Check array subjobs as well as the parent. Preserve terminal scheduler status before history expires. A missing qstat entry alone cannot establish completion or success.
+## Monitor, collect and recover
 
-Collect logs and metrics into a new local collection directory. Check scheduler Exit_status and worker exit_status, result-transfer errors and expected result files. Validate scientific outputs using the experiment's criteria. Run compute-heavy validation through PBS. Distinguish application/scientific failures from staging, environment and transfer failures.
+Poll with an interval and finite deadline, including array subjobs when applicable. Preserve terminal scheduler records before history expires. A missing qstat entry alone does not establish completion or success.
 
-Retry only identified failed work with a new run ID and parent/index provenance. Keep prior outputs. Deleting jobs or overwriting experiment results requires the user's confirmation. Private scratch created by this job may be cleaned after successful transfer, as in the template. Never loop over submissions or silently enlarge the experiment.
+Collect logs and requested outputs into a fresh local directory. Check scheduler Exit_status, worker exit_status, transfer errors and the task's expected files. Collect metrics or perform domain-specific analysis only when relevant to the task. Put compute-intensive checks through PBS. Distinguish application, environment, input/staging, resource-limit and transfer failures.
+
+When a retry is requested or already authorized, rerun only identified failed work under a new run ID and record its parent/index. Keep earlier outputs. Obtain user authorization before cancelling jobs or replacing results; an explicit request to cancel specified jobs already provides that authorization. Never loop over submissions or silently increase the workload. Clean only private work directories created by this run after successful transfer.

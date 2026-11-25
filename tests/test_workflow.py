@@ -198,11 +198,13 @@ class JobTemplateTests(unittest.TestCase):
         with tarfile.open(self.run / 'code.tar', 'w') as archive:
             archive.add(code / 'input.txt', arcname='input.txt')
         shutil.copy(SKILL / 'assets/job.pbs', self.run / 'job.pbs')
+        (self.run / 'request.env').write_text(
+            'REQUEST_SELECT=select=1:ncpus=8:mem=12gb\nREQUEST_WALLTIME=01:23:45\n')
         self.command('cat input.txt > "$2/result.txt"\nprintf "%s" "$1" > "$2/index.txt"')
 
     def command(self, body):
         (self.run / 'command.sh').write_text('#!/bin/bash\nset -euo pipefail\n' + body + '\n')
-        checksums = subprocess.check_output(['sha256sum', 'code.tar', 'job.pbs', 'command.sh'],
+        checksums = subprocess.check_output(['sha256sum', 'code.tar', 'job.pbs', 'command.sh', 'request.env'],
                                             cwd=self.run)
         (self.run / 'SHA256SUMS').write_bytes(checksums)
 
@@ -224,9 +226,45 @@ class JobTemplateTests(unittest.TestCase):
         self.assertEqual(len(list((self.run / 'tasks/1').glob('attempt-*'))), 2)
 
     def test_array_index_is_forwarded(self):
-        self.env['PBS_ARRAY_INDEX'] = '4'
+        for index in (0, 4):
+            self.env['PBS_ARRAY_INDEX'] = str(index)
+            self.assertEqual(self.execute().returncode, 0)
+            self.assertEqual((self.attempt(index) / 'results/index.txt').read_text(), str(index))
+
+    def test_work_root_can_fall_back_to_run_directory(self):
+        self.env.pop('CETUS_SCRATCH_ROOT', None)
+        self.env.pop('TMPDIR', None)
         self.assertEqual(self.execute().returncode, 0)
-        self.assertEqual((self.attempt(4) / 'results/index.txt').read_text(), '4')
+        work = Path((self.attempt() / 'scratch_path').read_text().strip())
+        self.assertEqual(work.parent, self.run)
+        self.assertFalse(work.exists())
+        self.assertTrue((self.attempt() / 'results/result.txt').exists())
+
+    def test_template_preserves_application_thread_settings(self):
+        self.env.update(OMP_NUM_THREADS='3', OPENBLAS_NUM_THREADS='2')
+        self.command('printf "%s:%s" "$OMP_NUM_THREADS" "$OPENBLAS_NUM_THREADS" > "$2/threads.txt"')
+        self.assertEqual(self.execute().returncode, 0)
+        self.assertEqual((self.attempt() / 'results/threads.txt').read_text(), '3:2')
+
+    def test_shell_demonstration_runs_without_git_or_python_workload(self):
+        document = (SKILL / 'references/pbs.md').read_text()
+        prepare = re.findall(r'```bash\n(.*?)```', document, re.S)[0]
+        prepare = prepare.replace('skill_dir=/absolute/path/to/cetus-pbs', 'skill_dir="$TEST_SKILL"')
+        prepare = prepare.replace('local_base="$HOME/cetus-runs"', 'local_base="$TEST_LOCAL_BASE"')
+        root = self.base / 'demo-runs'
+        env = dict(self.env, TEST_SKILL=str(SKILL), TEST_LOCAL_BASE=str(root))
+        result = subprocess.run(['bash', '-e', '-s'], input=prepare, env=env,
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        demo = next(root.iterdir())
+        (demo / 'source/input.txt').write_text('later source change\n')
+        env['PBS_O_WORKDIR'] = str(demo)
+        worker = subprocess.run(['bash', str(demo / 'job.pbs')], env=env,
+                                text=True, capture_output=True)
+        self.assertEqual(worker.returncode, 0, worker.stderr)
+        attempt = next((demo / 'tasks/1').glob('attempt-*'))
+        self.assertEqual((attempt / 'results/output.txt').read_text(), 'example input\n')
+        self.assertEqual((attempt / 'exit_status').read_text().strip(), '0')
 
     def test_application_failure_preserves_outputs_and_exit(self):
         self.command('echo partial > "$2/partial.txt"\nexit 7')
@@ -262,7 +300,8 @@ class JobTemplateTests(unittest.TestCase):
         blocks = re.findall(r"<<'REMOTE'\n(.*?)\nREMOTE", document, re.S)
         submit = blocks[1].replace('cd "$HOME/cetus-runs/$1"', 'cd "$TEST_RUN"')
         qsub = self.bin / 'qsub'
-        qsub.write_text('#!/bin/bash\necho called >> "$TEST_RUN/calls"\necho 123.test\n')
+        qsub.write_text('#!/bin/bash\necho called >> "$TEST_RUN/calls"\n'
+                        'printf "%s\\n" "$@" > "$TEST_RUN/qsub-args"\necho 123.test\n')
         qsub.chmod(0o755)
         self.env['TEST_RUN'] = str(self.run)
         for expected in (0, 1):
@@ -271,6 +310,9 @@ class JobTemplateTests(unittest.TestCase):
             self.assertEqual(result.returncode, expected, result.stderr)
         self.assertEqual((self.run / 'calls').read_text().splitlines(), ['called'])
         self.assertEqual((self.run / 'submission/job_id').read_text().strip(), '123.test')
+        args = (self.run / 'qsub-args').read_text().splitlines()
+        self.assertIn('select=1:ncpus=8:mem=12gb', args)
+        self.assertIn('walltime=01:23:45', args)
 
 
 if __name__ == '__main__':

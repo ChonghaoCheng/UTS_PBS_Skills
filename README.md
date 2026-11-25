@@ -16,32 +16,34 @@ The assistant selects the installation method from the current client, operating
 
 ## Run with one sentence
 
-Open the client in your local experiment repository and send:
+Open the client in the directory containing your task files and send:
 
 ```text
-Use cetus-pbs to run one minimal experiment on Cetus from this repository's configuration, then collect the logs and metrics and report the outcome.
+Use cetus-pbs to submit a PBS job on Cetus from this directory's task configuration, then collect the logs and outputs and report its status.
 ```
 
-The assistant first reads repository instructions, experiment configurations, launch scripts, existing PBS tools and SSH settings. It then freezes the code, selects resources, submits once, monitors the job and analyzes the results. It generates or captures the `run_id`, version records, PBS Job ID and timestamps.
+The assistant first reads task instructions, launch scripts, configuration, existing PBS tools and SSH settings. It prepares independent task files, selects resources, submits and monitors the job. It generates or captures the `run_id`, file snapshot or applicable Git revision, PBS Job ID and timestamps. Tasks can use ordinary directories; Git, datasets and metric files are optional.
 
-It asks together only for execution-critical information that remains unresolved, such as the experiment entry point, input dataset or SSH identity. Resource selection starts from the repository's existing small-run settings and accounts for queue limits.
+It asks together only for unresolved execution-critical information such as the command, required inputs, SSH identity or resource requirements. The account, connection alias, paths, software environment, queue and resource request come from the current task and environment. An initial test or minimal task runs only when requested or agreed.
 
-Add constraints to the same sentence when needed, for example, “use the current committed code, run one minimal task, and limit walltime to 10 minutes.” Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`.
+Add the task scope, output requirements or “inspect the configuration without submitting” to the same sentence when needed. Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`.
 
 ## Skill contents
 
-The skill package includes the `SKILL.md` operating rules, SSH/PBS references and the `job.pbs` job template. The assistant combines these with the project's existing configuration and uses SSH, rsync and native PBS commands for the following workflow:
+The skill package includes the `SKILL.md` operating rules, SSH/PBS references and the `job.pbs` job template. The assistant combines these with the current task configuration and uses SSH, rsync and native PBS commands for the following workflow:
 
 | Capability | Contents |
 | --- | --- |
 | SSH access | Reuse connection settings, guide key authentication and connection multiplexing, and diagnose network or permission failures |
-| Experiment preparation | Read repository configuration, entry points and parameters, select a minimal case, freeze code, configuration and launchers, and generate an independent `run_id` and version records |
+| Task preparation | Read commands and configuration, prepare independent file snapshots, launchers and a `run_id` for the requested scope, and record a revision when Git applies |
 | Resource configuration | Size CPU, memory and walltime from existing settings, measured overhead and queue limits, and align process/thread counts with the allocation |
 | Submission and monitoring | Capture the PBS Job ID and submission receipt, prevent duplicate submission, and monitor jobs and array subjobs with a polling interval and deadline |
 | Batch tasks | Run independent tasks as concurrency-limited job arrays, with separate configuration, logs and results per task index |
-| Data management | Record shared input versions, paths and checksums, stage needed data into node-local scratch, and write long-running checkpoints to shared storage |
-| Result collection | Retrieve logs, metrics and results, check scheduler and application exit status, and assess outputs against experiment criteria |
+| Files and storage | Determine task inputs, outputs and writable directories; record checksums and use approved node-local work storage when needed, preserving files that must persist |
+| Output collection | Retrieve logs and required outputs, check scheduler and application exit status, and perform metrics checks or domain-specific analysis when relevant |
 | Failure recovery | Distinguish application, environment, staging and transfer failures, rerun identified failed tasks individually, and preserve original results and parent-run provenance |
+
+The bundled template receives resource requests through `qsub -l` and defines no queue, CPU, memory or walltime defaults. Configure application threads and work directories for the task and execution environment. Values and directory names in the reference walkthrough are demonstration examples.
 
 ## Manual installation
 
@@ -85,11 +87,11 @@ The installer prints the actual `SKILL.md` path. Keep the entire skill directory
 
 ## Execution rules
 
-- The AI client runs on the local workstation. Cetus login nodes handle file transfer, lightweight inspection and scheduling. Compute-intensive workloads run on compute nodes through PBS.
-- Give each experiment an independent `run_id`, code snapshot, configuration and output directory. Record code and data versions, parameters, PBS Job ID, timestamps, exit status and result files.
-- Use concurrency-limited job arrays for independent batch tasks. A minimal experiment runs one bounded case; scaling requires a defined task scope.
+- The AI client runs in the submission environment outside Cetus. Cetus login nodes handle file transfer, lightweight inspection and scheduling. Compute-intensive workloads run on compute nodes through PBS.
+- Give each new submission an independent `run_id`, file snapshot, configuration and output directory. Record commands, resource requests, applicable versions/checksums, PBS Job ID, timestamps and exit status.
+- Use concurrency-limited arrays for independent batch tasks, with ranges, mappings and concurrency determined by the requested workload. Inspect, collect or cancel existing jobs as requested.
 - Preserve submission receipts and monitor with a polling interval and deadline. Reconcile uncertain submissions against existing jobs. When a retry is requested, create new runs for identified failures with their original logs and provenance retained.
-- Obtain user confirmation before deleting jobs or overwriting experiment results. Do not loop over submissions. Do not run AI clients on Cetus login or compute nodes.
+- Obtain user authorization before cancelling jobs or overwriting outputs; a request to cancel specified jobs provides that authorization. Do not loop over submissions or change task scope silently. This workflow keeps AI clients in the submission environment outside Cetus.
 
 ## Documentation and templates
 
@@ -97,7 +99,7 @@ The installer prints the actual `SKILL.md` path. Keep the entire skill directory
 | --- | --- |
 | [SKILL.md](skills/cetus-pbs/SKILL.md) | Skill entry point and execution rules |
 | [SSH access](skills/cetus-pbs/references/ssh.md) | Connection configuration and authentication diagnosis |
-| [PBS workflow](skills/cetus-pbs/references/pbs.md) | Snapshots, submission, arrays, monitoring and result collection |
+| [PBS operations](skills/cetus-pbs/references/pbs.md) | Snapshots, resources, submission, arrays, monitoring, collection and cancellation |
 | [job.pbs](skills/cetus-pbs/assets/job.pbs) | Reusable PBS job template |
 | [Client compatibility](docs/clients.md) | Host adapters and skill discovery |
 | [Windows guide](docs/windows.md) | Native Windows and WSL 2 installation and usage |

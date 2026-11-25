@@ -2,7 +2,7 @@
 
 [简体中文](windows.zh-CN.md) · [Back to README](../README.md)
 
-Use a native Windows client or run the client and experiment checkout inside WSL 2. Install skills in the environment where the agent runs. Native Windows typically uses `C:\Users\your-name`; WSL has a separate Linux home.
+Use a native Windows client or run the client and task files inside WSL 2. Install skills in the environment where the agent runs. Native Windows typically uses `C:\Users\your-name`; WSL has a separate Linux home.
 
 ## Native Windows clients
 
@@ -19,31 +19,13 @@ if ($LASTEXITCODE -ne 0) { throw 'Skill installation failed; inspect the output 
 
 Choose `claude`, `dsh`, `cursor`, `copilot`, `gemini` or `opencode` for other adapters. Desktop session markers may be absent in Git Bash, so explicit selection is reliable. Verify the printed destination is in your Windows user directory, then reopen the client session.
 
-To set up a terminal client, first install a supported Node.js version. The tested Harness 0.2.2-rc.5 release requires Node.js ≥24.9.0; check the requirement of the version you install. The validation used Node 24.22.3. Run only the relevant commands in PowerShell:
-
-```powershell
-# Codex
-npm.cmd install -g @openai/codex
-codex --version
-codex login
-
-# Claude Code official Windows installer
-irm https://claude.ai/install.ps1 | iex
-# Open a new terminal after installation
-claude --version
-claude auth login
-
-# DeepSeek Harness local Web UI
-npx.cmd @deepseek-ai/dsh web
-```
-
-Authenticate through the respective client. Follow the product's setup instructions for IDE integrations; they do not require the terminal edition merely to load skills.
+Install and authenticate the client using its official setup instructions. See [client compatibility](clients.md) for skill adapters. An existing desktop app or IDE integration can install the skill directly.
 
 The PBS walkthrough uses Bash, SSH and rsync. Native clients should run those commands through local WSL or another configured Bash/rsync environment, or adapt transfers to an available OpenSSH/scp workflow. Windows OpenSSH reads `$HOME\.ssh\config`, while WSL reads its own `~/.ssh/config`; verify the connection in the actual submitting environment.
 
 ## WSL 2
 
-From an administrator PowerShell, install Ubuntu and follow the restart and Linux-user setup prompts:
+Reuse an existing suitable WSL 2 distribution when available. The following is an Ubuntu setup example. From an administrator PowerShell, install it and follow the restart and Linux-user setup prompts:
 
 ```powershell
 wsl --install -d Ubuntu
@@ -54,7 +36,7 @@ Then prepare tools inside Ubuntu. These sudo commands install dependencies on yo
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git curl rsync openssh-client
+sudo apt-get install -y curl rsync openssh-client
 ```
 
 Install and sign into the chosen client inside WSL, then run the README installer:
@@ -63,6 +45,6 @@ Install and sign into the chosen client inside WSL, then run the README installe
 curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash
 ```
 
-Keep the research checkout under WSL's `~/research/` and configure `ssh cetus` there. When an IDE uses a WSL remote extension, install the skill inside WSL as well. The AI client stays on your computer; Cetus executes PBS computation.
+Choose a WSL working directory for the actual task and use the SSH settings available in that environment. `cetus` is an example alias. When an IDE uses a WSL remote extension, install the skill inside WSL as well. The AI client stays on your computer; Cetus executes PBS computation.
 
 [Codex WSL](https://learn.chatgpt.com/docs/windows/wsl) · [Claude Windows setup](https://code.claude.com/docs/en/setup) · [Harness](https://github.com/deepseek-ai/deepseek-harness#run) · [Git for Windows](https://gitforwindows.org/)
