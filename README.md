@@ -26,7 +26,7 @@ The assistant first reads repository instructions, experiment configurations, la
 
 It asks together only for execution-critical information that remains unresolved, such as the experiment entry point, input dataset or SSH identity. Resource selection starts from the repository's existing small-run settings and accounts for queue limits.
 
-Add constraints to the same sentence when needed, for example, “use the current committed code, run one seed, and limit walltime to 10 minutes.” Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`.
+Add constraints to the same sentence when needed, for example, “use the current committed code, run one minimal task, and limit walltime to 10 minutes.” Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`.
 
 ## Skill contents
 
@@ -38,7 +38,7 @@ The skill package includes the `SKILL.md` operating rules, SSH/PBS references an
 | Experiment preparation | Read repository configuration, entry points and parameters, select a minimal case, freeze code, configuration and launchers, and generate an independent `run_id` and version records |
 | Resource configuration | Size CPU, memory and walltime from existing settings, measured overhead and queue limits, and align process/thread counts with the allocation |
 | Submission and monitoring | Capture the PBS Job ID and submission receipt, prevent duplicate submission, and monitor jobs and array subjobs with a polling interval and deadline |
-| Batch experiments | Run Monte Carlo cases and parameter sweeps using concurrency-limited job arrays, with separate configuration and outputs per index |
+| Batch tasks | Run independent tasks as concurrency-limited job arrays, with separate configuration, logs and results per task index |
 | Data management | Record shared input versions, paths and checksums, stage needed data into node-local scratch, and write long-running checkpoints to shared storage |
 | Result collection | Retrieve logs, metrics and results, check scheduler and application exit status, and assess outputs against experiment criteria |
 | Failure recovery | Distinguish application, environment, staging and transfer failures, rerun identified failed tasks individually, and preserve original results and parent-run provenance |
@@ -87,7 +87,7 @@ The installer prints the actual `SKILL.md` path. Keep the entire skill directory
 
 - The AI client runs on the local workstation. Cetus login nodes handle file transfer, lightweight inspection and scheduling. Compute-intensive workloads run on compute nodes through PBS.
 - Give each experiment an independent `run_id`, code snapshot, configuration and output directory. Record code and data versions, parameters, PBS Job ID, timestamps, exit status and result files.
-- Use concurrency-limited job arrays for independent batch experiments. A minimal experiment runs one bounded case; scaling requires a defined experiment scope.
+- Use concurrency-limited job arrays for independent batch tasks. A minimal experiment runs one bounded case; scaling requires a defined task scope.
 - Preserve submission receipts and monitor with a polling interval and deadline. Reconcile uncertain submissions against existing jobs. When a retry is requested, create new runs for identified failures with their original logs and provenance retained.
 - Obtain user confirmation before deleting jobs or overwriting experiment results. Do not loop over submissions. Do not run AI clients on Cetus login or compute nodes.
 

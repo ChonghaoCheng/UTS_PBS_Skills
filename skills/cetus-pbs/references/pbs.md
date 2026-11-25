@@ -64,7 +64,7 @@ REMOTE
 
 The exclusive `submission/` directory prevents the same run from being submitted twice through this procedure. A failed or interrupted qsub leaves that marker for diagnosis. Read `submission/job_id`, its temporary file, and the scheduler's unique job name before deciding whether a new submission is needed. Do not remove the marker and blindly repeat qsub.
 
-For a job array, replace the single qsub invocation with `qsub -J '1-25%5' -N "$2" -j oe -o "$PWD/pbs/" job.pbs` using the same receipt redirection and submission marker. Freeze an index-to-parameter/seed mapping before submitting. The example launcher reports each index; replace it with the real task lookup. Array resources are per subjob. At most five subjobs are eligible to run at once, subject to scheduler limits.
+For a job array, replace the single qsub invocation with `qsub -J '1-25%5' -N "$2" -j oe -o "$PWD/pbs/" job.pbs` using the same receipt redirection and submission marker. Freeze an index-to-task mapping containing each task's inputs and arguments before submitting. The example launcher reports each index; replace it with the real task lookup. Array resources are per subjob. At most five subjobs are eligible to run at once, subject to scheduler limits.
 
 The template verifies SHA256SUMS, uses a private scratch directory, and writes logs into a unique per-index attempt. It transfers regular output files, then cleans its own scratch after a successful transfer. A failed transfer retains scratch and yields a nonzero worker exit. Scratch is still node-local and can be lost. Long jobs need checkpoints on shared storage before they finish.
 

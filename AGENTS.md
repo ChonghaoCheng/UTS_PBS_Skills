@@ -16,6 +16,8 @@ Load `skills/cetus-pbs/SKILL.md` and begin discovery in the current repository. 
 
 ## When editing this repository
 
+Write for any Cetus user. Describe PBS capabilities in terms of jobs, task inputs, resources and outputs. Keep specific research methods and datasets out of default workflows; label optional examples clearly.
+
 Keep README.md and README.zh-CN.md consistent, including linked client and Windows guides. Use HTTPS GitHub URLs. Keep scientific project documentation outside this repository. Keep the skill body independent of client-specific tools and invocation syntax; put discovery adapters in the installer and client guide. The skill describes PBS operation, and runnable examples must preserve run isolation and avoid duplicate submission. Separate real client loading evidence from directory tests and documentation-only compatibility claims.
 
 Run `python3 -m unittest discover -s tests -v` after changing installation or job-template behavior. Test with temporary project directories, without installing into the developer's real client directory or contacting Cetus. State clearly when tests simulate PBS rather than run on the cluster.
