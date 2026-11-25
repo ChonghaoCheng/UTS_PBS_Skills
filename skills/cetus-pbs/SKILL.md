@@ -13,7 +13,9 @@ Read [SSH access](references/ssh.md) when setting up or diagnosing a connection.
 
 ## Prepare
 
-Inspect the user's repository and existing submission tools first. Reuse working tools when they preserve the requirements below. Confirm the code revision, entry point, arguments, input version, seeds and workload size. Resolve missing values from repository context or ask when they affect execution.
+Treat a natural-language request as sufficient to begin discovery in the current repository. Read its instructions, experiment configurations, launch scripts and existing PBS tooling, and inspect the existing SSH setup. Reuse working tools when they preserve the requirements below. Derive the code revision, entry point, arguments, input version, seeds and workload size from that evidence. Generate run IDs, checksums and timestamps, and capture PBS receipts automatically rather than requesting them from the user.
+
+For a minimal-run request, select one bounded representative case using the repository's documented smoke/small-run settings, existing resource requests and current queue limits. Report the chosen configuration and assumptions with the run. Ask together only for execution-critical values that remain missing or ambiguous, such as the intended experiment, dataset or account. Do not invent scientific parameters, input paths or credentials, and do not expand a minimal run into a sweep.
 
 Create a unique run ID. Freeze code, configuration and launchers in an independent snapshot with a manifest recording the commit, input identifiers and checksums. Git archive includes committed content subject to export attributes; separately stage required untracked files, submodule content and actual Git LFS data when needed. Queued work must not depend on later changes to a live checkout or mutable dataset.
 

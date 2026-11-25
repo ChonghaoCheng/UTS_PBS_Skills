@@ -2,35 +2,52 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-An Agent Skill for UTS Cetus providing operating procedures and script templates for SSH access, PBS resource configuration, job submission, monitoring, result collection and failed-task retries. It supports Agent Skills hosts with file access and terminal tools, including desktop applications, IDE assistants and terminal clients.
+An Agent Skill for UTS Cetus with procedures and templates for SSH access, PBS submission, job monitoring and result collection. It supports desktop applications, IDE assistants and terminal clients with file access and terminal tools.
 
-The AI client runs on the local workstation. Cetus login nodes handle file transfers, lightweight inspection and scheduler operations. Simulation, training and other compute-intensive workloads run on compute nodes through PBS.
+## Install with one sentence
 
-## Requirements
+Send this sentence to the AI assistant you are using:
 
-- Skill installation requires Bash, curl and tar.
-- The experiment workflow uses Git, SSH, rsync and Python 3, with a valid Cetus account and network access.
-- Install the skill in the environment where the agent executes commands. Native Windows clients and WSL use separate home directories. See the [Windows guide](docs/windows.md).
+```text
+Read https://github.com/ChonghaoCheng/UTS_PBS_Skills, install cetus-pbs for this client automatically, and check that the skill and its supporting files are complete.
+```
 
-## Install the skill
+The assistant selects the installation method from the current client, operating system and available tools. It defaults to personal scope and reports the installed path and invocation. Repeated installation skips identical content and backs up existing copies before updates. Open a new session after installation.
 
-Run in a local terminal:
+## Run with one sentence
+
+Open the client in your local experiment repository and send:
+
+```text
+Use cetus-pbs to run one minimal experiment on Cetus from this repository's configuration, then collect the logs and metrics and report the outcome.
+```
+
+The assistant first reads repository instructions, experiment configurations, launch scripts, existing PBS tools and SSH settings. It then freezes the code, selects resources, submits once, monitors the job and analyzes the results. It generates or captures the `run_id`, version records, PBS Job ID and timestamps.
+
+It asks together only for execution-critical information that remains unresolved, such as the experiment entry point, input dataset or SSH identity. Resource selection starts from the repository's existing small-run settings and accounts for queue limits.
+
+Add constraints to the same sentence when needed, for example, “use the current committed code, run one seed, and limit walltime to 10 minutes.” Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`.
+
+## Manual installation
+
+Expand the instructions below to use a terminal directly or select an installation scope. Separate instructions cover [native Windows and WSL 2](docs/windows.md).
+
+<details>
+<summary>Installation commands and options</summary>
+
+Skill installation requires Bash, curl and tar. Run in a local terminal:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash
 ```
 
-The default mode identifies the active Codex or Claude session from environment variables when available. Otherwise it detects supported client commands on PATH. If none are found, it exits with an error and requests explicit selection.
-
-For desktop applications, IDE assistants or clients launched through `npx`, select the installation target explicitly:
+The default mode identifies the active Codex or Claude session when available, then falls back to supported client commands on PATH. Select an adapter explicitly for a desktop application without a command entry:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash -s -- --client codex
 ```
 
-Supported `--client` values include `codex`, `claude`, `dsh`, `cursor`, `copilot`, `gemini` and `opencode`. See [client compatibility](docs/clients.md) for discovery paths and supported interfaces.
-
-To install from source:
+Alternatively, install from source:
 
 ```bash
 git clone https://github.com/ChonghaoCheng/UTS_PBS_Skills.git
@@ -41,47 +58,22 @@ bash scripts/install.sh --client codex
 | Option | Behavior |
 | --- | --- |
 | No arguments or `--client auto` | Detect clients and install at personal scope by default |
-| `--client NAME` | Install for the selected client |
+| `--client NAME` | Select `codex`, `claude`, `dsh`, `cursor`, `copilot`, `gemini` or `opencode` |
 | `--client all` | Install for all seven built-in adapters |
 | `--project PATH` | Install into an existing project directory; can be combined with `--client` |
 | `--skills-dir PATH` | Use another host's skill directory; cannot be combined with `--client` or `--project` |
 | `--help` | Print the complete option reference |
 
-The installer prints the actual `SKILL.md` path. Repeated installation skips identical content and backs up changed copies before replacing them. Keep the complete skill folder, including `references/` and `assets/`. Open a new agent session after installation.
+The installer prints the actual `SKILL.md` path. Keep the entire skill directory, including `references/` and `assets/`. Install in the environment where the agent executes commands. Native Windows clients and WSL use separate home directories.
 
-Alternatively, give the current agent this instruction:
-
-> Read https://github.com/ChonghaoCheng/UTS_PBS_Skills and install cetus-pbs locally for the current client. Inspect the installer, select the matching adapter or documented skill directory, run the installation, and report the installed path and invocation.
-
-## Run an experiment
-
-Configure a local `cetus` alias using the [SSH guide](skills/cetus-pbs/references/ssh.md). Open the experiment repository in the client and load `cetus-pbs`. Codex accepts `$cetus-pbs` and Claude Code accepts `/cetus-pbs`. Other hosts use their own skill invocation mechanism.
-
-Provide the code revision, launch command, data version, resource request and output requirements. For example:
-
-```text
-Use cetus-pbs to run one minimal experiment.
-Repository: <local repository path>
-Code revision: <Git commit>
-Launch command: <entry point and complete arguments>
-Input data: <versioned shared path and checksum>
-PBS resources: select=1:ncpus=1:mem=2gb, walltime=00:10:00
-Expected outputs: <metric files, result files and acceptance criteria>
-
-Freeze the code and configuration, submit once, monitor until termination,
-collect logs and metrics, and record the run_id, PBS Job ID, data version,
-timestamps and exit status. Analyze any failures.
-```
-
-The resource request above is for a minimal example. Size production jobs from measured CPU, memory and runtime requirements and the current queue limits.
+</details>
 
 ## Execution rules
 
-- Give each experiment an independent `run_id`, code snapshot, configuration and output directory. Queued jobs must be isolated from subsequent code changes.
-- Record the Git commit, parameters, input identifiers and checksums, PBS Job ID, start/end times, exit status and result files.
-- Use concurrency-limited job arrays for independent seeds or parameter sweeps. Keep outputs separate for each index and retry.
-- Save the submission receipt and monitor with a polling interval and deadline. After a connection failure or missing scheduler entry, inspect scheduler state and existing receipts before deciding the next action.
-- Preserve failed-run logs. Create new runs only for identified failed tasks, recording the parent run and task index.
+- The AI client runs on the local workstation. Cetus login nodes handle file transfer, lightweight inspection and scheduling. Compute-intensive workloads run on compute nodes through PBS.
+- Give each experiment an independent `run_id`, code snapshot, configuration and output directory. Record code and data versions, parameters, PBS Job ID, timestamps, exit status and result files.
+- Use concurrency-limited job arrays for independent batch experiments. A minimal experiment runs one bounded case; scaling requires a defined experiment scope.
+- Preserve submission receipts and monitor with a polling interval and deadline. Reconcile uncertain submissions against existing jobs. When a retry is requested, create new runs for identified failures with their original logs and provenance retained.
 - Obtain user confirmation before deleting jobs or overwriting experiment results. Do not loop over submissions. Do not run AI clients on Cetus login or compute nodes.
 
 ## Documentation and templates
@@ -89,7 +81,7 @@ The resource request above is for a minimal example. Size production jobs from m
 | File | Purpose |
 | --- | --- |
 | [SKILL.md](skills/cetus-pbs/SKILL.md) | Skill entry point and execution rules |
-| [SSH access](skills/cetus-pbs/references/ssh.md) | SSH configuration, key authentication and connection diagnosis |
+| [SSH access](skills/cetus-pbs/references/ssh.md) | Connection configuration and authentication diagnosis |
 | [PBS workflow](skills/cetus-pbs/references/pbs.md) | Snapshots, submission, arrays, monitoring and result collection |
 | [job.pbs](skills/cetus-pbs/assets/job.pbs) | Reusable PBS job template |
 | [Client compatibility](docs/clients.md) | Host adapters and skill discovery |
