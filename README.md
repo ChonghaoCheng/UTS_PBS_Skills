@@ -28,6 +28,21 @@ It asks together only for execution-critical information that remains unresolved
 
 Add constraints to the same sentence when needed, for example, “use the current committed code, run one seed, and limit walltime to 10 minutes.” Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`.
 
+## Skill contents
+
+The skill package includes the `SKILL.md` operating rules, SSH/PBS references and the `job.pbs` job template. The assistant combines these with the project's existing configuration and uses SSH, rsync and native PBS commands for the following workflow:
+
+| Capability | Contents |
+| --- | --- |
+| SSH access | Reuse connection settings, guide key authentication and connection multiplexing, and diagnose network or permission failures |
+| Experiment preparation | Read repository configuration, entry points and parameters, select a minimal case, freeze code, configuration and launchers, and generate an independent `run_id` and version records |
+| Resource configuration | Size CPU, memory and walltime from existing settings, measured overhead and queue limits, and align process/thread counts with the allocation |
+| Submission and monitoring | Capture the PBS Job ID and submission receipt, prevent duplicate submission, and monitor jobs and array subjobs with a polling interval and deadline |
+| Batch experiments | Run Monte Carlo cases and parameter sweeps using concurrency-limited job arrays, with separate configuration and outputs per index |
+| Data management | Record shared input versions, paths and checksums, stage needed data into node-local scratch, and write long-running checkpoints to shared storage |
+| Result collection | Retrieve logs, metrics and results, check scheduler and application exit status, and assess outputs against experiment criteria |
+| Failure recovery | Distinguish application, environment, staging and transfer failures, rerun identified failed tasks individually, and preserve original results and parent-run provenance |
+
 ## Manual installation
 
 Expand the instructions below to use a terminal directly or select an installation scope. Separate instructions cover [native Windows and WSL 2](docs/windows.md).
