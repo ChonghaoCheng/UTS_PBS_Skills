@@ -30,14 +30,6 @@ For manual installation, copy the entire `skills/cetus-pbs/` folder from this re
 
 Ordinary Claude chat/Cowork and cloud-only sessions have different upload/distribution mechanisms from local Claude Code. Likewise, local installation does not automatically install a skill in a cloud agent or remote IDE worker. Follow the host's supported import procedure and ensure its execution environment complies with the local-agent/Cetus-computation boundary.
 
-## Verification status
-
-Codex CLI 0.172.0, Claude Code 2.1.332 and Harness 0.2.2-rc.5 were installed in an isolated Linux home. Codex and Claude sent the complete installed skill body and asset reference to a local protocol test endpoint. Harness launched its Web UI and its shipped filesystem provider discovered and loaded the complete skill. These checks exercised real client code without external model credentials or inference.
-
-Cursor, Copilot, Gemini and OpenCode mappings follow their official documentation. Their desktop/IDE behavior and native Windows loading have not been exercised in this environment. Routing tests cover the installer destinations; these are separate from real-client loading tests.
-
-[Validation record](validation.md)
-
 ## Official client references
 
 - [Codex skills](https://learn.chatgpt.com/docs/build-skills)

@@ -65,8 +65,4 @@ curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/s
 
 建议把实验仓库放在 WSL 的 `~/research/`，并在 WSL 内配置 `ssh cetus`。从 Windows IDE 使用 WSL 远程扩展时，技能也应安装到 WSL 环境。所有 AI 客户端仍在自己的电脑上运行，Cetus 只运行 PBS 计算任务。
 
-## 验证范围
-
-这些 Windows 步骤依据官方文档整理。当前验证环境是隔离 Linux，原生 Windows 与 WSL 2 的交互流程还需在对应系统上验证；Linux 加载成功不会自动证明 Windows 应用已加载。
-
 [Codex WSL 指南](https://learn.chatgpt.com/docs/windows/wsl) · [Claude Windows 安装](https://code.claude.com/docs/en/setup) · [Harness](https://github.com/deepseek-ai/deepseek-harness#run) · [Git for Windows](https://gitforwindows.org/)

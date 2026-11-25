@@ -30,14 +30,6 @@ bash scripts/install.sh --skills-dir /path/to/client/skills
 
 普通 Claude 聊天、Cowork 和纯云端会话采用不同于本地 Claude Code 的分发方式。本地安装也不会自动传到云端代理或远端 IDE 工作进程。请按宿主支持的导入方式接入，并保证实际执行环境遵守本地运行代理、Cetus 运行计算的边界。
 
-## 验证范围
-
-已在隔离 Linux home 中安装 Codex CLI 0.172.0、Claude Code 2.1.332 和 Harness 0.2.2-rc.5。Codex 与 Claude 实际向本地协议测试端点发送了完整技能正文和模板引用；Harness 的 Web 界面启动成功，其发布包中的文件技能加载器也成功发现并读取了完整技能。这些检查使用真实客户端代码，没有使用外部模型凭据或模型推理。
-
-Cursor、Copilot、Gemini 和 OpenCode 的目录映射依据官方文档；当前环境尚未执行这些桌面或 IDE 客户端以及原生 Windows 加载测试。安装器目录测试和真实客户端加载测试会分别记录。
-
-[查看验证记录](validation.md)
-
 ## 官方参考
 
 - [Codex 技能](https://learn.chatgpt.com/docs/build-skills)

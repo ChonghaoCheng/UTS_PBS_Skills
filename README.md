@@ -2,77 +2,95 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-A portable Agent Skill for UTS Cetus, usable from compatible desktop apps, IDE assistants and terminal clients. Your AI assistant works locally, submits computation through SSH and PBS, monitors jobs, and brings back logs and results.
+An Agent Skill for UTS Cetus providing operating procedures and script templates for SSH access, PBS resource configuration, job submission, monitoring, result collection and failed-task retries. It supports Agent Skills hosts with file access and terminal tools, including desktop applications, IDE assistants and terminal clients.
 
-**Run AI clients on your local computer. All simulation, training and other research computation runs in PBS jobs.**
+The AI client runs on the local workstation. Cetus login nodes handle file transfers, lightweight inspection and scheduler operations. Simulation, training and other compute-intensive workloads run on compute nodes through PBS.
 
-[Windows setup](docs/windows.md) · [Client compatibility](docs/clients.md) · [Installation verification](docs/validation.md)
+## Requirements
 
-## Install
+- Skill installation requires Bash, curl and tar.
+- The experiment workflow uses Git, SSH, rsync and Python 3, with a valid Cetus account and network access.
+- Install the skill in the environment where the agent executes commands. Native Windows clients and WSL use separate home directories. See the [Windows guide](docs/windows.md).
 
-Run this on your local Linux or macOS workstation with Bash, curl and tar available:
+## Install the skill
+
+Run in a local terminal:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash
 ```
 
-The installer selects the active Codex or Claude session when its environment identifies it. Otherwise it detects supported client commands on PATH. For a desktop or IDE assistant without a command entry, select it explicitly. It prints the installed `SKILL.md` paths. Running it again skips identical files and backs up changed copies before updating them.
+The default mode identifies the active Codex or Claude session from environment variables when available. Otherwise it detects supported client commands on PATH. If none are found, it exits with an error and requests explicit selection.
 
-For a desktop or IDE client without a command on PATH, or an `npx` Harness session, select the client explicitly:
+For desktop applications, IDE assistants or clients launched through `npx`, select the installation target explicitly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash -s -- --client codex
 ```
 
-Choose `codex`, `claude`, `dsh`, `cursor`, `copilot`, `gemini`, `opencode` or `all`. The installer installs the skill in your personal skill directory. Open a new session after installation.
+Supported `--client` values include `codex`, `claude`, `dsh`, `cursor`, `copilot`, `gemini` and `opencode`. See [client compatibility](docs/clients.md) for discovery paths and supported interfaces.
 
-You can also ask your agent to install it:
-
-> Read https://github.com/ChonghaoCheng/UTS_PBS_Skills and install its cetus-pbs skill for the client you are running in, on this local computer. Run the installer, verify the installed files, and tell me how to invoke it.
-
-To inspect the source or install into a project:
+To install from source:
 
 ```bash
 git clone https://github.com/ChonghaoCheng/UTS_PBS_Skills.git
 cd UTS_PBS_Skills
-bash scripts/install.sh --client codex --project /path/to/your/project
+bash scripts/install.sh --client codex
 ```
 
-For any other Agent Skills client, pass its documented skill directory:
+| Option | Behavior |
+| --- | --- |
+| No arguments or `--client auto` | Detect clients and install at personal scope by default |
+| `--client NAME` | Install for the selected client |
+| `--client all` | Install for all seven built-in adapters |
+| `--project PATH` | Install into an existing project directory; can be combined with `--client` |
+| `--skills-dir PATH` | Use another host's skill directory; cannot be combined with `--client` or `--project` |
+| `--help` | Print the complete option reference |
 
-```bash
-bash scripts/install.sh --skills-dir /path/to/client/skills
+The installer prints the actual `SKILL.md` path. Repeated installation skips identical content and backs up changed copies before replacing them. Keep the complete skill folder, including `references/` and `assets/`. Open a new agent session after installation.
+
+Alternatively, give the current agent this instruction:
+
+> Read https://github.com/ChonghaoCheng/UTS_PBS_Skills and install cetus-pbs locally for the current client. Inspect the installer, select the matching adapter or documented skill directory, run the installation, and report the installed path and invocation.
+
+## Run an experiment
+
+Configure a local `cetus` alias using the [SSH guide](skills/cetus-pbs/references/ssh.md). Open the experiment repository in the client and load `cetus-pbs`. Codex accepts `$cetus-pbs` and Claude Code accepts `/cetus-pbs`. Other hosts use their own skill invocation mechanism.
+
+Provide the code revision, launch command, data version, resource request and output requirements. For example:
+
+```text
+Use cetus-pbs to run one minimal experiment.
+Repository: <local repository path>
+Code revision: <Git commit>
+Launch command: <entry point and complete arguments>
+Input data: <versioned shared path and checksum>
+PBS resources: select=1:ncpus=1:mem=2gb, walltime=00:10:00
+Expected outputs: <metric files, result files and acceptance criteria>
+
+Freeze the code and configuration, submit once, monitor until termination,
+collect logs and metrics, and record the run_id, PBS Job ID, data version,
+timestamps and exit status. Analyze any failures.
 ```
 
-## Choose your client
+The resource request above is for a minimal example. Size production jobs from measured CPU, memory and runtime requirements and the current queue limits.
 
-| Client | Installer selection | Interface |
-| --- | --- | --- |
-| Codex | `--client codex` | Desktop, IDE, terminal |
-| Claude Code | `--client claude` | Code desktop surface, IDE, terminal |
-| DeepSeek Harness | `--client dsh` | Local Web UI |
-| Cursor | `--client cursor` | IDE agent |
-| GitHub Copilot | `--client copilot` | Supported IDE and agent interfaces |
-| Gemini CLI | `--client gemini` | Terminal |
-| OpenCode | `--client opencode` | Supported agent interfaces |
-| Other Agent Skills hosts | `--skills-dir PATH` | The host's documented skill directory |
+## Execution rules
 
-The same `SKILL.md`, references and PBS template are used by every adapter. The agent needs local file access and tools for SSH and file transfer. Install into the environment where it runs, including WSL or a remote IDE workspace when applicable. Local installation does not automatically sync to another computer or cloud worker.
+- Give each experiment an independent `run_id`, code snapshot, configuration and output directory. Queued jobs must be isolated from subsequent code changes.
+- Record the Git commit, parameters, input identifiers and checksums, PBS Job ID, start/end times, exit status and result files.
+- Use concurrency-limited job arrays for independent seeds or parameter sweeps. Keep outputs separate for each index and retry.
+- Save the submission receipt and monitor with a polling interval and deadline. After a connection failure or missing scheduler entry, inspect scheduler state and existing receipts before deciding the next action.
+- Preserve failed-run logs. Create new runs only for identified failed tasks, recording the parent run and task index.
+- Obtain user confirmation before deleting jobs or overwriting experiment results. Do not loop over submissions. Do not run AI clients on Cetus login or compute nodes.
 
-See [client compatibility](docs/clients.md) and the [Windows native / WSL 2 guide](docs/windows.md). Existing desktop and IDE clients can use the skill without installing a terminal edition.
+## Documentation and templates
 
-## Use
-
-Set up your local `cetus` SSH alias first using the [SSH guide](skills/cetus-pbs/references/ssh.md). Then open your local experiment repository in your AI client.
-
-In a new session, ask the agent to load `cetus-pbs`. Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`. Give it your experiment details, for example:
-
-> Run a minimal experiment on Cetus using commit `<commit>`, entry point `<command>` and shared dataset `<path/version>`. Freeze the code and configuration, request 1 CPU, 2 GB and 10 minutes, submit through PBS, monitor completion, collect logs and metrics, and check the outputs. Keep AI clients on this local computer.
-
-The skill guides SSH setup, resource sizing, job arrays, immutable snapshots, result collection and individual retries. It includes a [PBS job template](skills/cetus-pbs/assets/job.pbs) and a [complete native-command walkthrough](skills/cetus-pbs/references/pbs.md). Adapt the template's resources and frozen `command.sh` to your workload.
-
-## Verification
-
-Clean-home Linux checks covered real installations of Codex CLI, Claude Code and DeepSeek Harness, automatic detection, repeated installation and skill-body loading. Twenty local regression tests cover installer behavior and the PBS template. The PBS checks simulate the scheduler locally.
-
-Other client paths were checked against official documentation. Their runtime loading, macOS and Windows flows still require testing on those systems. See the [validation record](docs/validation.md) for versions, evidence and limits.
+| File | Purpose |
+| --- | --- |
+| [SKILL.md](skills/cetus-pbs/SKILL.md) | Skill entry point and execution rules |
+| [SSH access](skills/cetus-pbs/references/ssh.md) | SSH configuration, key authentication and connection diagnosis |
+| [PBS workflow](skills/cetus-pbs/references/pbs.md) | Snapshots, submission, arrays, monitoring and result collection |
+| [job.pbs](skills/cetus-pbs/assets/job.pbs) | Reusable PBS job template |
+| [Client compatibility](docs/clients.md) | Host adapters and skill discovery |
+| [Windows guide](docs/windows.md) | Native Windows and WSL 2 installation and usage |

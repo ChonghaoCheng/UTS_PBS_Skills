@@ -65,8 +65,4 @@ curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/s
 
 Keep the research checkout under WSL's `~/research/` and configure `ssh cetus` there. When an IDE uses a WSL remote extension, install the skill inside WSL as well. The AI client stays on your computer; Cetus executes PBS computation.
 
-## Verification scope
-
-These Windows steps follow official documentation. Native Windows and WSL 2 interactive flows have not been run in the isolated Linux test environment. Linux loading results do not establish that a Windows app has loaded the skill.
-
 [Codex WSL](https://learn.chatgpt.com/docs/windows/wsl) · [Claude Windows setup](https://code.claude.com/docs/en/setup) · [Harness](https://github.com/deepseek-ai/deepseek-harness#run) · [Git for Windows](https://gitforwindows.org/)
