@@ -44,9 +44,9 @@ Persist the PATH setting in your local shell configuration when necessary. Accou
 Clone the repository and install locally:
 
 ```bash
-git clone git@github.com:ChonghaoCheng/UTS_PBS_Skills.git
+git clone https://github.com/ChonghaoCheng/UTS_PBS_Skills.git
 cd UTS_PBS_Skills
-bash scripts/install.sh --client both
+bash scripts/install.sh
 # Or choose one client
 bash scripts/install.sh --client codex
 bash scripts/install.sh --client claude
@@ -57,6 +57,8 @@ bash scripts/install.sh --client both --update
 ```
 
 This script installs the skill files. CLI installation and account authentication follow the instructions above. It refuses common Cetus hostnames and PBS allocations; run it on your own local workstation. Existing skills require explicit --update. Backups are kept in a hidden sibling directory. For a multi-client installation, filesystem failures can leave one client updated before the other; inspect the printed paths before retrying.
+
+The default installer detects executable commands on PATH, rather than guessing which chat session launched it. One detected CLI installs one copy; multiple detected CLIs install for each. Use `--client codex|claude|dsh` to override, `--client both` for Codex and Claude, or `--client all` for all three. With no detected CLI it exits with guidance. Explicit selection also works before the CLI is installed.
 
 ## Manual skill installation
 
@@ -77,6 +79,26 @@ cp -R skills/cetus-pbs "$HOME/.claude/skills/"
 For project scope, copy the same folder to your research repository's `.agents/skills/` for Codex or `.claude/skills/` for Claude Code. Choose one scope per CLI to avoid duplicate versions. Start a new CLI session after installation. Pull this repository and update the installed copy when upgrading.
 
 [Codex skill discovery](https://learn.chatgpt.com/docs/build-skills) · [Claude Code skills](https://code.claude.com/docs/en/skills)
+
+## DeepSeek Harness
+
+DeepSeek Harness uses the `dsh` command and a local Web UI. With Node.js installed, start it from your local research directory:
+
+```bash
+npx @deepseek-ai/dsh web
+```
+
+The official default UI address is `http://127.0.0.1:3080`. Configure your model provider and credentials in Harness. This npx launch does not guarantee a persistent `dsh` executable on PATH, so install the skill explicitly:
+
+```bash
+bash scripts/install.sh --client dsh
+# Or install into an existing project
+bash scripts/install.sh --client dsh --project /path/to/research-repo
+```
+
+The default skill locations are `~/.dsh/skills/cetus-pbs/` and `<project>/.dsh/skills/cetus-pbs/`. Custom Harness homes need the actual configured skill root. Start a new session and ask Harness to load the `cetus-pbs` skill before preparing PBS work. The developer preview can change; check upstream configuration when upgrading.
+
+[Official quickstart](https://github.com/deepseek-ai/deepseek-harness#run) · [Official skill discovery](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/skills.md)
 
 ## Configure SSH
 

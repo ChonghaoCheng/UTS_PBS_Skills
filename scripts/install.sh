@@ -4,14 +4,16 @@ set -euo pipefail
 
 usage() {
     cat <<'HELP'
-Usage: bash scripts/install.sh --client codex|claude|both [--project PATH] [--update]
+Usage: bash scripts/install.sh [--client auto|codex|claude|dsh|both|all] [--project PATH] [--update]
 Installs the skill only. Install and authenticate the AI CLI separately.
-Default scope is personal (~/.agents/skills or ~/.claude/skills).
+Default: detect codex, claude and dsh executables on PATH and install for each found CLI.
+Default scope is personal (~/.agents/skills, ~/.claude/skills, ~/.dsh/skills).
+For customized DSH homes, use the documented skill location and install manually.
 --project PATH installs into an existing local project directory.
 --update backs up existing skills before replacing them.
 HELP
 }
-client=
+client=auto
 project=
 update=false
 while (($#)); do
@@ -25,7 +27,7 @@ while (($#)); do
         *) usage >&2; exit 2 ;;
     esac
 done
-case "$client" in codex|claude|both) ;; *) usage >&2; exit 2 ;; esac
+case "$client" in auto|codex|claude|dsh|both|all) ;; *) usage >&2; exit 2 ;; esac
 case "$(hostname -s)" in
     hpc-login*|hpc-exec*|hpc-head*)
         echo "Run this installer on your local workstation, outside Cetus." >&2
@@ -43,9 +45,33 @@ if [[ -n $project ]]; then
     [[ -d $project ]] || { echo "Project directory does not exist: $project" >&2; exit 1; }
     base=$(cd -- "$project" && pwd)
 fi
+clients=()
+if [[ $client == auto ]]; then
+    for executable in codex claude dsh; do
+        if command -v "$executable" >/dev/null 2>&1; then
+            clients+=("$executable")
+        fi
+    done
+    if (( ${#clients[@]} == 0 )); then
+        echo "No supported CLI found on PATH. Install a CLI or specify --client codex|claude|dsh." >&2
+        exit 1
+    fi
+    printf 'Detected CLI: %s\n' "${clients[@]}"
+elif [[ $client == both ]]; then
+    clients=(codex claude)
+elif [[ $client == all ]]; then
+    clients=(codex claude dsh)
+else
+    clients=("$client")
+fi
 destinations=()
-[[ $client == claude ]] || destinations+=("$base/.agents/skills/cetus-pbs")
-[[ $client == codex ]] || destinations+=("$base/.claude/skills/cetus-pbs")
+for selected in "${clients[@]}"; do
+    case "$selected" in
+        codex) destinations+=("$base/.agents/skills/cetus-pbs") ;;
+        claude) destinations+=("$base/.claude/skills/cetus-pbs") ;;
+        dsh) destinations+=("$base/.dsh/skills/cetus-pbs") ;;
+    esac
+done
 
 # Check every destination before making changes.
 for destination in "${destinations[@]}"; do
@@ -77,4 +103,4 @@ for destination in "${destinations[@]}"; do
     trap - EXIT
     echo "Installed: $destination"
 done
-echo 'Start a new CLI session. Codex: $cetus-pbs. Claude Code: /cetus-pbs.'
+echo 'Start a new CLI session. Codex: $cetus-pbs. Claude Code: /cetus-pbs. DeepSeek Harness: ask it to load cetus-pbs.'

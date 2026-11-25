@@ -44,9 +44,9 @@ claude auth login
 在本地克隆仓库并安装：
 
 ```bash
-git clone git@github.com:ChonghaoCheng/UTS_PBS_Skills.git
+git clone https://github.com/ChonghaoCheng/UTS_PBS_Skills.git
 cd UTS_PBS_Skills
-bash scripts/install.sh --client both
+bash scripts/install.sh
 # 或选择单个 CLI
 bash scripts/install.sh --client codex
 bash scripts/install.sh --client claude
@@ -57,6 +57,8 @@ bash scripts/install.sh --client both --update
 ```
 
 脚本安装技能文件，CLI 本体安装和账号登录见上文。请在本地工作站运行，脚本会拒绝常见 Cetus 主机名和 PBS 分配环境。已有技能需显式加 --update，备份保存在同级隐藏目录。多客户端安装遇到文件系统错误时可能只完成其中一个，请根据输出路径检查后重试。
+
+安装脚本默认检查 PATH 中的 `codex`、`claude`、`dsh` 命令。检测到一个就安装一个，多个则分别安装；它检测的是可用程序，无法可靠判定当前聊天来自哪个 CLI。可用 `--client codex|claude|dsh` 指定单个，`--client both` 安装 Codex 与 Claude，`--client all` 安装三者。未检测到时退出并提示；显式选择也支持提前安装技能。
 
 ## 手动安装技能
 
@@ -77,6 +79,26 @@ cp -R skills/cetus-pbs "$HOME/.claude/skills/"
 也可安装到研究仓库的 `.agents/skills/`（Codex）或 `.claude/skills/`（Claude Code）。每个 CLI 选择一种范围，避免多份同名技能。安装后重新打开 CLI 会话。更新时拉取本仓库，并更新安装位置的副本。
 
 [Codex 技能位置](https://learn.chatgpt.com/docs/build-skills) · [Claude Code 技能说明](https://code.claude.com/docs/en/skills)
+
+## DeepSeek Harness
+
+DeepSeek Harness 使用 `dsh` 命令和本地 Web 界面。本地安装 Node.js 后，在研究目录启动：
+
+```bash
+npx @deepseek-ai/dsh web
+```
+
+默认界面地址是 `http://127.0.0.1:3080`，在 Harness 中配置模型服务与凭据。npx 启动不保证 PATH 中存在持久的 `dsh` 命令，因此可以显式安装技能：
+
+```bash
+bash scripts/install.sh --client dsh
+# 或安装到已有项目
+bash scripts/install.sh --client dsh --project /path/to/research-repo
+```
+
+默认技能位置是 `~/.dsh/skills/cetus-pbs/` 或 `<项目>/.dsh/skills/cetus-pbs/`。自定义 Harness home 时需手动使用实际配置的技能目录。新建会话后，要求 Harness 加载 `cetus-pbs` 技能再准备 PBS 任务。该产品处于开发预览，升级时请核对上游配置。
+
+[官方启动说明](https://github.com/deepseek-ai/deepseek-harness#run) · [官方技能加载规则](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/skills.md)
 
 ## 配置 SSH
 
