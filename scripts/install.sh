@@ -1,62 +1,62 @@
 #!/usr/bin/env bash
-# Install this repository's skill on the local workstation.
+# Install the skill from a checkout or from a downloaded copy of this script.
 set -euo pipefail
 
 usage() {
     cat <<'HELP'
-Usage: bash scripts/install.sh [--client auto|codex|claude|dsh|both|all] [--project PATH] [--update]
-Installs the skill only. Install and authenticate the AI CLI separately.
-Default: detect codex, claude and dsh executables on PATH and install for each found CLI.
-Default scope is personal (~/.agents/skills, ~/.claude/skills, ~/.dsh/skills).
-For customized DSH homes, use the documented skill location and install manually.
---project PATH installs into an existing local project directory.
---update backs up existing skills before replacing them.
+Usage: bash scripts/install.sh [--client auto|codex|claude|dsh|both|all] [--project PATH]
+
+Default: detect the active Codex/Claude session, or installed clients on PATH.
+Identical copies are left alone. Changed copies are backed up and replaced.
+--client NAME   Select a client explicitly, including desktop and npx sessions.
+--project PATH  Install into an existing local project instead of your home.
+--update        Accepted for compatibility; safe updates are already automatic.
+--help          Show this help.
+
+Run on your local workstation. This installs the cetus-pbs skill files.
 HELP
 }
+
+die() { echo "Error: $*" >&2; exit 1; }
+
 client=auto
 project=
-update=false
 while (($#)); do
     case "$1" in
         --client|--project)
-            (($# >= 2)) || { usage >&2; exit 2; }
+            (($# >= 2)) && [[ -n $2 && $2 != --* ]] || { usage >&2; exit 2; }
             if [[ $1 == --client ]]; then client=$2; else project=$2; fi
             shift 2 ;;
-        --update) update=true; shift ;;
+        --update) shift ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
 done
 case "$client" in auto|codex|claude|dsh|both|all) ;; *) usage >&2; exit 2 ;; esac
 case "$(hostname -s)" in
-    hpc-login*|hpc-exec*|hpc-head*)
-        echo "Run this installer on your local workstation, outside Cetus." >&2
-        exit 1 ;;
+    hpc-login*|hpc-exec*|hpc-head*) die 'Run this on your local workstation, outside Cetus.' ;;
 esac
-if [[ -n ${PBS_JOBID:-} ]]; then
-    echo "Run this installer outside PBS allocations." >&2
-    exit 1
-fi
-root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-source_dir="$root/skills/cetus-pbs"
-[[ -f "$source_dir/SKILL.md" ]] || { echo "Missing skill source." >&2; exit 1; }
+[[ -z ${PBS_JOBID:-} ]] || die 'Run this outside PBS allocations.'
+
 base=$HOME
 if [[ -n $project ]]; then
-    [[ -d $project ]] || { echo "Project directory does not exist: $project" >&2; exit 1; }
-    base=$(cd -- "$project" && pwd)
+    [[ -d $project ]] || die "Project directory does not exist: $project"
+    base=$(cd -- "$project" && pwd -P)
 fi
 clients=()
 if [[ $client == auto ]]; then
-    for executable in codex claude dsh; do
-        if command -v "$executable" >/dev/null 2>&1; then
-            clients+=("$executable")
-        fi
-    done
-    if (( ${#clients[@]} == 0 )); then
-        echo "No supported CLI found on PATH. Install a CLI or specify --client codex|claude|dsh." >&2
-        exit 1
+    if [[ -n ${CODEX_THREAD_ID:-} ]]; then
+        clients=(codex)
+    elif [[ ${CLAUDECODE:-} == 1 ]]; then
+        clients=(claude)
+    else
+        for executable in codex claude dsh; do
+            if command -v "$executable" >/dev/null 2>&1; then
+                clients+=("$executable")
+            fi
+        done
     fi
-    printf 'Detected CLI: %s\n' "${clients[@]}"
+    (( ${#clients[@]} > 0 )) || die 'No client detected. Use --client codex, --client claude or --client dsh for a desktop/npx client.'
 elif [[ $client == both ]]; then
     clients=(codex claude)
 elif [[ $client == all ]]; then
@@ -64,43 +64,84 @@ elif [[ $client == all ]]; then
 else
     clients=("$client")
 fi
-destinations=()
+printf 'Selected client: %s\n' "${clients[@]}"
+
+# Keep temporary content and rollback state private to this invocation.
+download_dir=
+staging=
+lock=
+backup=
+destination=
+cleanup() {
+    if [[ -n $backup && ! -e $destination && ! -L $destination ]]; then
+        mv -- "$backup/cetus-pbs" "$destination" || echo "Restore from $backup/cetus-pbs" >&2
+    fi
+    [[ -z $staging ]] || rm -rf -- "$staging"
+    [[ -z $download_dir ]] || rm -rf -- "$download_dir"
+    [[ -z $lock ]] || rmdir -- "$lock"
+    return 0
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+script_file=${BASH_SOURCE[0]:-}
+source_dir=
+if [[ -n $script_file && -f $script_file ]]; then
+    root=$(cd -- "$(dirname -- "$script_file")/.." && pwd -P)
+    if [[ -f "$root/skills/cetus-pbs/SKILL.md" ]]; then
+        source_dir="$root/skills/cetus-pbs"
+    fi
+fi
+if [[ -z $source_dir ]]; then
+    command -v curl >/dev/null 2>&1 || die 'curl is required to download the skill.'
+    command -v tar >/dev/null 2>&1 || die 'tar is required to unpack the skill.'
+    download_dir=$(mktemp -d "${TMPDIR:-/tmp}/cetus-pbs-download.XXXXXXXX")
+    curl -fLsS --connect-timeout 15 --max-time 120 \
+        https://github.com/ChonghaoCheng/UTS_PBS_Skills/archive/refs/heads/main.tar.gz \
+        -o "$download_dir/source.tar.gz"
+    tar xzf "$download_dir/source.tar.gz" -C "$download_dir" \
+        UTS_PBS_Skills-main/skills/cetus-pbs
+    source_dir="$download_dir/UTS_PBS_Skills-main/skills/cetus-pbs"
+fi
+for required in SKILL.md references/ssh.md references/pbs.md assets/job.pbs; do
+    [[ -s "$source_dir/$required" ]] || die "Incomplete skill source: $required"
+done
+
 for selected in "${clients[@]}"; do
     case "$selected" in
-        codex) destinations+=("$base/.agents/skills/cetus-pbs") ;;
-        claude) destinations+=("$base/.claude/skills/cetus-pbs") ;;
-        dsh) destinations+=("$base/.dsh/skills/cetus-pbs") ;;
+        codex) config_dir="$base/.agents" ;;
+        claude)
+            config_dir="$base/.claude"
+            [[ -n $project ]] || config_dir=${CLAUDE_CONFIG_DIR:-$config_dir} ;;
+        dsh)
+            config_dir="$base/.dsh"
+            [[ -n $project ]] || config_dir=${DSH_HOME:-$config_dir} ;;
     esac
-done
-
-# Check every destination before making changes.
-for destination in "${destinations[@]}"; do
-    if [[ -e $destination || -L $destination ]]; then
-        if [[ $update == false ]]; then
-            echo "Already exists: $destination. Use --update to back it up and replace it." >&2
-            exit 1
+    mkdir -p -- "$config_dir/skills"
+    parent=$(cd -- "$config_dir/skills" && pwd -P)
+    destination="$parent/cetus-pbs"
+    [[ ! $destination -ef $source_dir ]] || die "Destination is the source skill: $destination"
+    candidate_lock="$parent/.cetus-pbs-install.lock"
+    mkdir -- "$candidate_lock" 2>/dev/null || die "Another install may be running; inspect $candidate_lock before retrying."
+    lock=$candidate_lock
+    if [[ -d $destination ]] && diff -qr -- "$source_dir" "$destination" >/dev/null; then
+        echo "Already up to date: $destination/SKILL.md"
+    else
+        staging=$(mktemp -d "$parent/.cetus-pbs-install.XXXXXXXX")
+        cp -R -- "$source_dir/." "$staging/"
+        if [[ -e $destination || -L $destination ]]; then
+            mkdir -p -- "$config_dir/skill-backups"
+            backup=$(mktemp -d "$config_dir/skill-backups/cetus-pbs.XXXXXXXX")
+            mv -- "$destination" "$backup/cetus-pbs"
+            echo "Backup: $backup/cetus-pbs"
         fi
-        if [[ $(cd -- "$destination" && pwd -P) == $(cd -- "$source_dir" && pwd -P) ]]; then
-            echo "Destination is the source skill: $destination" >&2
-            exit 1
-        fi
+        mv -- "$staging" "$destination"
+        staging=
+        backup=
+        echo "Installed: $destination/SKILL.md"
     fi
+    rmdir -- "$lock"
+    lock=
 done
-
-for destination in "${destinations[@]}"; do
-    parent=$(dirname -- "$destination")
-    mkdir -p -- "$parent"
-    staging=$(mktemp -d "$parent/.cetus-install-XXXXXXXX")
-    trap 'rm -rf -- "$staging"' EXIT
-    cp -R -- "$source_dir/." "$staging/"
-    if [[ -e $destination || -L $destination ]]; then
-        backup=$(mktemp -d "$parent/.cetus-backup-XXXXXXXX")
-        # Keep backups outside the skill scanner's direct children.
-        mv -- "$destination" "$backup/cetus-pbs"
-        echo "Backup: $backup/cetus-pbs"
-    fi
-    mv -- "$staging" "$destination"
-    trap - EXIT
-    echo "Installed: $destination"
-done
-echo 'Start a new CLI session. Codex: $cetus-pbs. Claude Code: /cetus-pbs. DeepSeek Harness: ask it to load cetus-pbs.'
+printf '\nOpen a new session. Codex: $cetus-pbs | Claude: /cetus-pbs | Harness: load cetus-pbs\n'

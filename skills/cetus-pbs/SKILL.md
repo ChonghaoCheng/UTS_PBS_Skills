@@ -1,34 +1,34 @@
 ---
 name: cetus-pbs
-description: Operate UTS Cetus through SSH and native PBS commands. Use for SSH access, resource sizing, job scripts and arrays, monitoring, collecting logs and results, and rerunning failed tasks.
+description: Operate UTS Cetus through SSH and native PBS commands. Use for SSH setup, resource sizing, job scripts and arrays, monitoring, collecting logs and results, and rerunning failed tasks.
 ---
 
 # UTS Cetus PBS
 
-Run AI CLIs on the local workstation. AI CLIs are prohibited on Cetus login and compute nodes, including inside PBS jobs, under the user's stated policy. Access Cetus with SSH and rsync. Use the login node for lightweight file and scheduler operations; run computational work through PBS.
+Run the AI client on the local workstation. The user requires AI clients to stay off Cetus login and compute nodes, including PBS allocations. Use SSH/rsync from the workstation for remote operations. Limit the login node to lightweight inspection, transfer and scheduler commands; submit research computation and expensive tests/analysis through PBS.
 
-Read [SSH access](references/ssh.md) for authentication and multiple clients. Read [PBS workflow](references/pbs.md) for reusable job scripts, submission and monitoring.
+Read [SSH access](references/ssh.md) when setting up or diagnosing a connection. Read [PBS workflow](references/pbs.md) when preparing, submitting or collecting a run. Copy [the job template](assets/job.pbs) into a fresh run directory and adapt its resources and command launcher to the workload.
 
-## Reproducible execution
+## Prepare
 
-Confirm the intended repository revision, executable, arguments, input version, seeds and workload size. Ask for missing values that materially affect execution. Inspect the selected revision and input paths before submission.
+Inspect the user's repository and existing submission tools first. Reuse working tools when they preserve the requirements below. Confirm the code revision, entry point, arguments, input version, seeds and workload size. Resolve missing values from repository context or ask when they affect execution.
 
-Give every submission a unique run ID. Stage an independent code snapshot and frozen configuration, job script and input manifest. Record hashes or versioned dataset paths. Git archives can omit untracked, ignored and submodule content; stage required inputs explicitly. Queued jobs must use the frozen snapshot.
+Create a unique run ID. Freeze code, configuration and launchers in an independent snapshot with a manifest recording the commit, input identifiers and checksums. Git archive includes committed content subject to export attributes; separately stage required untracked files, submodule content and actual Git LFS data when needed. Queued work must not depend on later changes to a live checkout or mutable dataset.
 
-First run a minimal real workload and check scheduler status, worker exit and an expected result. Size CPU, memory and walltime from representative and heavy cases, including startup, input staging and output writeback. Query current queue limits. Set worker/thread counts to match allocated CPUs.
+Keep durable inputs on shared storage. Use read-only, versioned paths or hashes and stage only the needed shard into node-local scratch for heavy I/O. Write logs and checkpoints to the durable run directory during long tasks because a hard kill can prevent final writeback.
 
-For independent cases use bounded job arrays with separate output directories by index and execution attempt. Group short cases and shard expensive cases. Use separate arrays for materially different resource requirements.
+## Allocate and submit
 
-Keep durable inputs and outputs on shared storage. Stage only the required input shard into private node-local scratch for intensive I/O. Periodically save checkpoints for long tasks. Node-local scratch is not shared or durable.
+Run a minimal real workload first and check expected outputs. Size each subjob's CPU, RAM and walltime from representative cases, including startup and writeback. Query current limits with qstat -Qf. CPU allocation does not configure application parallelism; align workers and library threads with the requested ncpus. Request GPUs or multiple nodes only when supported by the application and queue.
 
-## Monitoring and recovery
+For independent seeds/parameters, use job arrays with a concurrency cap and separate index/attempt outputs. Group short cases and shard slow ones. Separate workloads with different resource requirements into different arrays.
 
-Submit once and save the PBS receipt, code revision, configuration, input identifiers and timestamps. If SSH disconnects before acceptance is clear, inspect the receipt or unique PBS job name before resubmitting.
+Submit once per run and save the PBS receipt. Use an exclusive submission marker as in the reference. If acceptance becomes uncertain after a connection failure, inspect the receipt or unique job name before considering a new submission. Do not automatically resubmit.
 
-Poll with an interval and deadline. Inspect array subjobs as well as the parent. Preserve terminal qstat output before history expires. A missing job ID does not establish success.
+## Monitor and recover
 
-Record execution host, scheduler/worker exits, resource usage, logs and result paths. Collect compact metrics first when practical. Distinguish infrastructure errors from application failures and validate saved outputs.
+Poll with an interval and finite deadline. Check array subjobs as well as the parent. Preserve terminal scheduler status before history expires. A missing qstat entry alone cannot establish completion or success.
 
-Retry identified failed cases with a fresh run ID and parent/index provenance. Preserve previous attempts. Require explicit user confirmation before deleting jobs or overwriting results. Never loop over automatic submissions.
+Collect logs and metrics into a new local collection directory. Check scheduler Exit_status and worker exit_status, result-transfer errors and expected result files. Validate scientific outputs using the experiment's criteria. Run compute-heavy validation through PBS. Distinguish application/scientific failures from staging, environment and transfer failures.
 
-[Resources](https://cetus.hpc.uts.edu.au/pbs/resources/) · [Queues](https://cetus.hpc.uts.edu.au/pbs/queues/) · [Job arrays](https://cetus.hpc.uts.edu.au/pbs/array_jobs/) · [Storage](https://cetus.hpc.uts.edu.au/hardware/layout/)
+Retry only identified failed work with a new run ID and parent/index provenance. Keep prior outputs. Deleting jobs or overwriting experiment results requires the user's confirmation. Private scratch created by this job may be cleaned after successful transfer, as in the template. Never loop over submissions or silently enlarge the experiment.

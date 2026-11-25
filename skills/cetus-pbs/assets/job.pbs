@@ -1,0 +1,58 @@
+#!/bin/bash
+#PBS -S /bin/bash
+#PBS -l select=1:ncpus=1:mem=2gb
+#PBS -l walltime=00:10:00
+#PBS -j oe
+set -euo pipefail
+umask 077
+: "${PBS_JOBID:?Submit this script through PBS}"
+: "${PBS_O_WORKDIR:?Missing PBS submission directory}"
+case "$(hostname -s)" in
+    hpc-login*|hpc-head*) echo 'Refusing computation on a login/head node.' >&2; exit 1 ;;
+esac
+cd -- "$PBS_O_WORKDIR"
+run=$PWD
+index=${PBS_ARRAY_INDEX:-1}
+[[ $index =~ ^[1-9][0-9]*$ ]]
+mkdir -p "$run/tasks/$index"
+attempt=$(mktemp -d "$run/tasks/$index/attempt-XXXXXXXX")
+exec >"$attempt/stdout.log" 2>"$attempt/stderr.log"
+scratch=
+finish() {
+    rc=$?
+    trap - EXIT
+    set +e
+    if [[ -n $scratch && -d $scratch/results ]]; then
+        rsync -a --no-links -- "$scratch/results/" "$attempt/results/"
+        copy_rc=$?
+        if (( copy_rc == 0 )); then
+            # Remove only the private temporary directory created by this job.
+            rm -rf -- "$scratch"
+        else
+            echo "Result transfer failed; scratch retained at $scratch" >&2
+            (( rc != 0 )) || rc=$copy_rc
+        fi
+    fi
+    date -u +%FT%TZ >"$attempt/ended_at"
+    printf '%s\n' "$rc" >"$attempt/exit_status.tmp"
+    mv -- "$attempt/exit_status.tmp" "$attempt/exit_status"
+    exit "$rc"
+}
+trap finish EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+date -u +%FT%TZ >"$attempt/started_at"
+hostname >"$attempt/hostname"
+printf '%s\n' "$PBS_JOBID" >"$attempt/pbs_job_id"
+sha256sum -c SHA256SUMS
+# Override only to use another site-approved job-local scratch root.
+scratch=$(mktemp -d "${CETUS_SCRATCH_ROOT:-/scratch}/pbs-${USER}-XXXXXXXX")
+printf '%s\n' "$scratch" >"$attempt/scratch_path"
+mkdir "$scratch/code" "$scratch/results"
+tar xf "$run/code.tar" -C "$scratch/code"
+cd "$scratch/code"
+# Keep these consistent with the requested ncpus and application worker count.
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+export RESULT_DIR="$scratch/results" TASK_INDEX="$index"
+# command.sh is frozen and checksummed alongside code.tar, not read from a live checkout.
+bash "$run/command.sh" "$index" "$RESULT_DIR"

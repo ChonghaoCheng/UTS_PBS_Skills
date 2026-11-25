@@ -1,9 +1,9 @@
-# SSH access and troubleshooting
+# SSH access
 
-Use the workstation or other client that will actually run the PBS commands. From off campus, connect that client to the UTS VPN. Use the user's existing alias and an official Cetus login hostname. Verify the host key using the UTS guidance before accepting a new host. `ssh -G cetus` shows effective local configuration.
+Use the local client that will submit jobs. Preserve an existing working Cetus alias. For a new setup, use the account and login node approved by UTS and connect the local client to the UTS VPN when required.
 
 ```sshconfig
-Host cetus hpc-login02.hpc.uts.edu.au
+Host cetus
     HostName hpc-login02.hpc.uts.edu.au
     User YOUR_UTS_LOGIN
     ControlMaster auto
@@ -11,33 +11,33 @@ Host cetus hpc-login02.hpc.uts.edu.au
     ControlPersist 30m
 ```
 
-Keep an existing working hostname and login instead of replacing them with the example. `ssh cetus` opens a shell. `ssh cetus true` authenticates and exits after a no-op, which can start a reusable connection. Verify unattended access from the same environment that will submit:
+Place this in local ~/.ssh/config. Verify the host fingerprint through the university's guidance on first connection. `ssh -G cetus` shows effective settings, `ssh cetus` opens a shell, and `ssh cetus true` authenticates and exits while allowing connection reuse.
+
+For requested key enrollment, first check that the chosen key filename is unused. Generate a passphrase-protected key and copy only its public key:
 
 ```bash
-ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 cetus \
-    'hostname; command -v qsub qstat rsync'
-```
-
-## Enroll a key only when requested
-
-Use an unused filename for a passphrase-protected key. Keep the private key on the client. Upload only the `.pub` file.
-
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_cetus -C "cetus-$(hostname -s)"
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_cetus -C "cetus-workstation"
 ssh-copy-id -o ControlPath=none -i ~/.ssh/id_ed25519_cetus.pub cetus
 ```
 
-The public key belongs in the remote login account's `$HOME/.ssh/authorized_keys`. The experiment data directory is separate. Set `IdentityFile ~/.ssh/id_ed25519_cetus` and `IdentitiesOnly yes` for the alias when using the dedicated key. Unlock it with `ssh-add ~/.ssh/id_ed25519_cetus` in an active SSH agent. Test fresh public-key authentication without a reused connection:
+Add `IdentityFile ~/.ssh/id_ed25519_cetus` and `IdentitiesOnly yes` to the alias when using that key. Public keys go in the login account's remote `$HOME/.ssh/authorized_keys`. Keep private keys on their originating client. Use `ssh-add ~/.ssh/id_ed25519_cetus` with an active local SSH agent for unattended access to a locked key.
+
+Verify fresh public-key authentication separately from connection reuse:
 
 ```bash
 ssh -o ControlPath=none -o BatchMode=yes -o PreferredAuthentications=publickey cetus hostname
 ```
 
-## Common branches
+Then verify the environment used by the AI client can access the required commands:
 
-- DNS failure or connection timeout: verify the effective hostname, campus/VPN connectivity, and whether the execution environment permits network access.
-- `Permission denied (publickey,...)`: authentication failed. Check alias username, agent and configured identity, and whether a one-time interactive UTS login is possible. If the error names `authorized_keys` or a remote directory, inspect the login home and permissions instead. Never ask for a password or private key in chat.
-- Existing authenticated control socket: reuse it with the same target. If `CETUS_CONTROL_PATH` points to an obsolete manual socket, unset it to use `~/.ssh/config`.
-- Multiple computers: either remote into the main local submission workstation, or configure each direct client with its own key and the same alias. Run the AI CLI on that workstation/client; Cetus access is through SSH commands. PBS jobs continue independently of the client connection. Local run manifests must be accessible to the client that uses repo-level `status` and `collect`.
+```bash
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 cetus \
+    'hostname; command -v qsub qstat rsync tar sha256sum'
+```
 
-[Cetus SSH access](https://cetus.hpc.uts.edu.au/getting_started/access_via_ssh/) · [Cetus SSH troubleshooting](https://cetus.hpc.uts.edu.au/faq/ssh/) · [OpenSSH client configuration](https://man.openbsd.org/ssh_config.5).
+- DNS failure or timeout requires checking hostname, campus/VPN connectivity and client network permissions.
+- `Permission denied (publickey,...)` is authentication failure. Check username, identity and agent. An error naming `authorized_keys` may instead indicate a remote permission problem. Do not request passwords or private-key content in chat.
+- A successful login via a reused socket does not prove the newly configured key works; use the fresh-key test above.
+- Each direct client may use its own key. Alternatively, remote into the local submission workstation and run the AI client there. Existing jobs continue after disconnect. Keep that run's local manifest accessible to the client doing collection.
+
+[Cetus SSH](https://cetus.hpc.uts.edu.au/getting_started/access_via_ssh/) · [Troubleshooting](https://cetus.hpc.uts.edu.au/faq/ssh/) · [OpenSSH configuration](https://man.openbsd.org/ssh_config.5)
