@@ -24,7 +24,7 @@ class InstallerTests(unittest.TestCase):
         self.bin.mkdir()
         self.env = dict(os.environ)
         for name in ('CODEX_THREAD_ID', 'CLAUDECODE', 'PBS_JOBID',
-                     'CLAUDE_CONFIG_DIR', 'DSH_HOME'):
+                     'CLAUDE_CONFIG_DIR', 'DSH_HOME', 'XDG_CONFIG_HOME'):
             self.env.pop(name, None)
         self.env['PATH'] = str(self.bin) + ':/usr/bin:/bin'
         self.env['TMPDIR'] = str(self.base)
@@ -45,11 +45,13 @@ class InstallerTests(unittest.TestCase):
         return result
 
     def installed(self, client):
-        folder = {'codex': '.agents', 'claude': '.claude', 'dsh': '.dsh'}[client]
+        folder = {'codex': '.agents', 'claude': '.claude', 'dsh': '.dsh',
+                  'cursor': '.cursor', 'copilot': '.github', 'gemini': '.gemini',
+                  'opencode': '.opencode'}[client]
         return self.project / folder / 'skills/cetus-pbs'
 
     def test_detects_each_client_and_all(self):
-        for client in ('codex', 'claude', 'dsh'):
+        for client in ('codex', 'claude', 'dsh', 'cursor', 'copilot', 'gemini', 'opencode'):
             self.command(client, 'exit 99')  # Discovery must not execute the CLI.
             result = self.run_installer()
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -82,7 +84,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.run_installer('--client', 'all').returncode, 0)
         result = self.run_installer('--client', 'all')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.count('Already up to date'), 3)
+        self.assertEqual(result.stdout.count('Already up to date'), 7)
         self.assertEqual(list(self.project.glob('*/skill-backups/*')), [])
         installed = self.installed('codex') / 'SKILL.md'
         installed.write_text('custom old skill\n')
@@ -100,6 +102,23 @@ class InstallerTests(unittest.TestCase):
             result = self.run_installer('--client', client, personal=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((config / 'skills/cetus-pbs/assets/job.pbs').is_file())
+
+    def test_custom_skill_directory_without_client(self):
+        skills = self.base / 'another agent' / 'skill-library'
+        result = self.run_installer('--skills-dir', str(skills), personal=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((skills / 'cetus-pbs/SKILL.md').exists())
+        repeated = self.run_installer('--skills-dir', str(skills), personal=True)
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        self.assertIn('Already up to date', repeated.stdout)
+        conflict = self.run_installer('--skills-dir', str(skills), '--client', 'codex', personal=True)
+        self.assertNotEqual(conflict.returncode, 0)
+
+    def test_opencode_personal_config_root(self):
+        self.env['XDG_CONFIG_HOME'] = str(self.base / 'user-config')
+        result = self.run_installer('--client', 'opencode', personal=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.base / 'user-config/opencode/skills/cetus-pbs/SKILL.md').exists())
 
     def test_source_destination_and_lock_are_protected(self):
         destination = self.installed('codex')

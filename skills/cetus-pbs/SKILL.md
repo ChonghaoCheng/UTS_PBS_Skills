@@ -5,6 +5,8 @@ description: Operate UTS Cetus through SSH and native PBS commands. Use for SSH 
 
 # UTS Cetus PBS
 
+Use the host's file and terminal tools to follow this workflow from a desktop, IDE or terminal agent. The examples use Bash, Git, SSH, rsync and Python 3. On Windows, use a local WSL/Bash environment with those tools, or preserve the same isolation and transfer guarantees with equivalent local tools. Resolve relative reference and template paths from this skill's directory.
+
 Run the AI client on the local workstation. The user requires AI clients to stay off Cetus login and compute nodes, including PBS allocations. Use SSH/rsync from the workstation for remote operations. Limit the login node to lightweight inspection, transfer and scheduler commands; submit research computation and expensive tests/analysis through PBS.
 
 Read [SSH access](references/ssh.md) when setting up or diagnosing a connection. Read [PBS workflow](references/pbs.md) when preparing, submitting or collecting a run. Copy [the job template](assets/job.pbs) into a fresh run directory and adapt its resources and command launcher to the workload.

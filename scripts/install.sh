@@ -4,12 +4,13 @@ set -euo pipefail
 
 usage() {
     cat <<'HELP'
-Usage: bash scripts/install.sh [--client auto|codex|claude|dsh|both|all] [--project PATH]
+Usage: bash scripts/install.sh [--client auto|codex|claude|dsh|cursor|copilot|gemini|opencode|both|all] [--project PATH] [--skills-dir PATH]
 
 Default: detect the active Codex/Claude session, or installed clients on PATH.
 Identical copies are left alone. Changed copies are backed up and replaced.
---client NAME   Select a client explicitly, including desktop and npx sessions.
+--client NAME   Select a client explicitly, including desktop and IDE clients.
 --project PATH  Install into an existing local project instead of your home.
+--skills-dir PATH  Install into any client's documented skills directory.
 --update        Accepted for compatibility; safe updates are already automatic.
 --help          Show this help.
 
@@ -21,18 +22,26 @@ die() { echo "Error: $*" >&2; exit 1; }
 
 client=auto
 project=
+skills_dir=
 while (($#)); do
     case "$1" in
-        --client|--project)
+        --client|--project|--skills-dir)
             (($# >= 2)) && [[ -n $2 && $2 != --* ]] || { usage >&2; exit 2; }
-            if [[ $1 == --client ]]; then client=$2; else project=$2; fi
+            case "$1" in
+                --client) client=$2 ;;
+                --project) project=$2 ;;
+                --skills-dir) skills_dir=$2 ;;
+            esac
             shift 2 ;;
         --update) shift ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
 done
-case "$client" in auto|codex|claude|dsh|both|all) ;; *) usage >&2; exit 2 ;; esac
+case "$client" in auto|codex|claude|dsh|cursor|copilot|gemini|opencode|both|all) ;; *) usage >&2; exit 2 ;; esac
+if [[ -n $skills_dir && ( -n $project || $client != auto ) ]]; then
+    die 'Use --skills-dir by itself, without --client or --project.'
+fi
 case "$(hostname -s)" in
     hpc-login*|hpc-exec*|hpc-head*) die 'Run this on your local workstation, outside Cetus.' ;;
 esac
@@ -44,23 +53,25 @@ if [[ -n $project ]]; then
     base=$(cd -- "$project" && pwd -P)
 fi
 clients=()
-if [[ $client == auto ]]; then
+if [[ -n $skills_dir ]]; then
+    clients=(custom)
+elif [[ $client == auto ]]; then
     if [[ -n ${CODEX_THREAD_ID:-} ]]; then
         clients=(codex)
     elif [[ ${CLAUDECODE:-} == 1 ]]; then
         clients=(claude)
     else
-        for executable in codex claude dsh; do
+        for executable in codex claude dsh cursor copilot gemini opencode; do
             if command -v "$executable" >/dev/null 2>&1; then
                 clients+=("$executable")
             fi
         done
     fi
-    (( ${#clients[@]} > 0 )) || die 'No client detected. Use --client codex, --client claude or --client dsh for a desktop/npx client.'
+    (( ${#clients[@]} > 0 )) || die 'No client detected. Choose --client codex, claude, dsh, cursor, copilot, gemini or opencode; or use --skills-dir PATH.'
 elif [[ $client == both ]]; then
     clients=(codex claude)
 elif [[ $client == all ]]; then
-    clients=(codex claude dsh)
+    clients=(codex claude dsh cursor copilot gemini opencode)
 else
     clients=("$client")
 fi
@@ -117,9 +128,20 @@ for selected in "${clients[@]}"; do
         dsh)
             config_dir="$base/.dsh"
             [[ -n $project ]] || config_dir=${DSH_HOME:-$config_dir} ;;
+        cursor) config_dir="$base/.cursor" ;;
+        copilot)
+            config_dir="$base/.copilot"
+            [[ -z $project ]] || config_dir="$base/.github" ;;
+        gemini) config_dir="$base/.gemini" ;;
+        opencode)
+            config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+            [[ -z $project ]] || config_dir="$base/.opencode" ;;
+        custom) config_dir=$(dirname -- "$skills_dir") ;;
     esac
-    mkdir -p -- "$config_dir/skills"
-    parent=$(cd -- "$config_dir/skills" && pwd -P)
+    target_root="$config_dir/skills"
+    [[ $selected != custom ]] || target_root=$skills_dir
+    mkdir -p -- "$target_root"
+    parent=$(cd -- "$target_root" && pwd -P)
     destination="$parent/cetus-pbs"
     [[ ! $destination -ef $source_dir ]] || die "Destination is the source skill: $destination"
     candidate_lock="$parent/.cetus-pbs-install.lock"
@@ -144,4 +166,4 @@ for selected in "${clients[@]}"; do
     rmdir -- "$lock"
     lock=
 done
-printf '\nOpen a new session. Codex: $cetus-pbs | Claude: /cetus-pbs | Harness: load cetus-pbs\n'
+printf '\nOpen a new agent session and ask it to load cetus-pbs. Codex: $cetus-pbs | Claude: /cetus-pbs\n'

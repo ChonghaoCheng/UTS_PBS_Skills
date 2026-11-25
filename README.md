@@ -2,9 +2,11 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-Give Codex, Claude Code or DeepSeek Harness a reusable workflow for UTS Cetus. Your AI assistant works locally, submits computation through SSH and PBS, monitors jobs, and brings back logs and results.
+A portable Agent Skill for UTS Cetus, usable from compatible desktop apps, IDE assistants and terminal clients. Your AI assistant works locally, submits computation through SSH and PBS, monitors jobs, and brings back logs and results.
 
 **Run AI clients on your local computer. All simulation, training and other research computation runs in PBS jobs.**
+
+[Windows setup](docs/windows.md) · [Client compatibility](docs/clients.md) · [Installation verification](docs/validation.md)
 
 ## Install
 
@@ -14,15 +16,15 @@ Run this on your local Linux or macOS workstation with Bash, curl and tar availa
 curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash
 ```
 
-The installer selects the active Codex or Claude session when its environment identifies it. Otherwise it detects `codex`, `claude` and `dsh` on PATH and installs for the clients it finds. It prints the installed `SKILL.md` paths. Running it again skips identical files and backs up changed copies before updating them.
+The installer selects the active Codex or Claude session when its environment identifies it. Otherwise it detects supported client commands on PATH. For a desktop or IDE assistant without a command entry, select it explicitly. It prints the installed `SKILL.md` paths. Running it again skips identical files and backs up changed copies before updating them.
 
-For desktop clients or an `npx` Harness session, select the client explicitly:
+For a desktop or IDE client without a command on PATH, or an `npx` Harness session, select the client explicitly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash -s -- --client codex
 ```
 
-Use `--client claude`, `--client dsh` or `--client all` as needed. The installer installs the skill in your personal client directory. Open a new session after installation.
+Choose `codex`, `claude`, `dsh`, `cursor`, `copilot`, `gemini`, `opencode` or `all`. The installer installs the skill in your personal skill directory. Open a new session after installation.
 
 You can also ask your agent to install it:
 
@@ -36,40 +38,41 @@ cd UTS_PBS_Skills
 bash scripts/install.sh --client codex --project /path/to/your/project
 ```
 
+For any other Agent Skills client, pass its documented skill directory:
+
+```bash
+bash scripts/install.sh --skills-dir /path/to/client/skills
+```
+
+## Choose your client
+
+| Client | Installer selection | Interface |
+| --- | --- | --- |
+| Codex | `--client codex` | Desktop, IDE, terminal |
+| Claude Code | `--client claude` | Code desktop surface, IDE, terminal |
+| DeepSeek Harness | `--client dsh` | Local Web UI |
+| Cursor | `--client cursor` | IDE agent |
+| GitHub Copilot | `--client copilot` | Supported IDE and agent interfaces |
+| Gemini CLI | `--client gemini` | Terminal |
+| OpenCode | `--client opencode` | Supported agent interfaces |
+| Other Agent Skills hosts | `--skills-dir PATH` | The host's documented skill directory |
+
+The same `SKILL.md`, references and PBS template are used by every adapter. The agent needs local file access and tools for SSH and file transfer. Install into the environment where it runs, including WSL or a remote IDE workspace when applicable. Local installation does not automatically sync to another computer or cloud worker.
+
+See [client setup and discovery paths](docs/clients.md) and the [Windows native / WSL 2 guide](docs/windows.md). Existing desktop and IDE clients can use the skill without installing a terminal edition.
+
 ## Use
 
 Set up your local `cetus` SSH alias first using the [SSH guide](skills/cetus-pbs/references/ssh.md). Then open your local experiment repository in your AI client.
 
-| Client | Start using the skill |
-| --- | --- |
-| Codex | `Use $cetus-pbs to prepare and run my experiment.` |
-| Claude Code | `/cetus-pbs Prepare and run my experiment.` |
-| DeepSeek Harness | Ask it to load the `cetus-pbs` skill and prepare your experiment. |
-
-For example:
+In a new session, ask the agent to load `cetus-pbs`. Codex also accepts `$cetus-pbs`; Claude Code accepts `/cetus-pbs`. Give it your experiment details, for example:
 
 > Run a minimal experiment on Cetus using commit `<commit>`, entry point `<command>` and shared dataset `<path/version>`. Freeze the code and configuration, request 1 CPU, 2 GB and 10 minutes, submit through PBS, monitor completion, collect logs and metrics, and check the outputs. Keep AI clients on this local computer.
 
 The skill guides SSH setup, resource sizing, job arrays, immutable snapshots, result collection and individual retries. It includes a [PBS job template](skills/cetus-pbs/assets/job.pbs) and a [complete native-command walkthrough](skills/cetus-pbs/references/pbs.md). Adapt the template's resources and frozen `command.sh` to your workload.
 
-## Client setup and install locations
+## Verification
 
-Already have a client? The skill installation above is sufficient. To set up a new client locally:
+Clean-home Linux checks covered real installations of Codex CLI, Claude Code and DeepSeek Harness, automatic detection, repeated installation and skill-body loading. Twenty local regression tests cover installer behavior and the PBS template. The PBS checks simulate the scheduler locally.
 
-| Client | Install or launch | Sign in |
-| --- | --- | --- |
-| Codex, with supported Node.js/npm | `npm install -g --prefix "$HOME/.local" @openai/codex` | `codex login` |
-| Claude Code | `curl -fsSL https://claude.ai/install.sh \| bash` | `claude auth login` |
-| DeepSeek Harness, with Node.js | `npx @deepseek-ai/dsh web` | Configure the provider in the local Web UI. |
-
-For installations under `~/.local/bin`, add it to your local PATH if necessary with `export PATH="$HOME/.local/bin:$PATH"`. Use the complete official Codex package. A single copied executable can lack the files required for interactive startup. Harness starts a local Web UI; it is not a terminal chat interface.
-
-| Client | Personal skill directory | Project skill directory |
-| --- | --- | --- |
-| Codex | `~/.agents/skills/cetus-pbs/` | `.agents/skills/cetus-pbs/` |
-| Claude Code | `~/.claude/skills/cetus-pbs/` | `.claude/skills/cetus-pbs/` |
-| DeepSeek Harness | `~/.dsh/skills/cetus-pbs/` | `.dsh/skills/cetus-pbs/` |
-
-Personal installs honor `CLAUDE_CONFIG_DIR` and `DSH_HOME`. Backups live in `skill-backups/` alongside the corresponding `skills/` directory. Client plugins that set their own skill roots may need manual installation into those roots. Each client is installed independently; if a multi-client installation fails partway, rerun after fixing the reported error.
-
-[Codex CLI](https://learn.chatgpt.com/docs/codex/cli) · [Codex skills](https://learn.chatgpt.com/docs/build-skills) · [Claude Code](https://code.claude.com/docs/en/setup) · [Claude skills](https://code.claude.com/docs/en/skills) · [Harness setup](https://github.com/deepseek-ai/deepseek-harness#run) · [Harness skills](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/skills.md)
+Other client paths were checked against official documentation. Their runtime loading, macOS and Windows flows still require testing on those systems. See the [validation record](docs/validation.md) for versions, evidence and limits.

@@ -1,0 +1,65 @@
+# 客户端兼容性
+
+[English](clients.md) · [返回 README](../README.zh-CN.md)
+
+技能采用 [Agent Skills 格式](https://agentskills.io/specification)。桌面代理、IDE 助手、终端代理，以及其他能读取技能文件、在本地执行 SSH 和文件传输命令的兼容宿主都可以接入。技能应安装到代理实际运行的环境。纯网页聊天和远端工作进程需要各自支持的文件、工具接入方式。
+
+| 客户端或使用界面 | 安装选项 | 个人目录 | 项目目录 |
+| --- | --- | --- | --- |
+| Codex 桌面端、IDE、CLI | `--client codex` | `~/.agents/skills/` | `.agents/skills/` |
+| Claude Code 终端、IDE、桌面 Code 界面 | `--client claude` | `~/.claude/skills/` | `.claude/skills/` |
+| DeepSeek Harness | `--client dsh` | `~/.dsh/skills/` | `.dsh/skills/` |
+| Cursor | `--client cursor` | `~/.cursor/skills/` | `.cursor/skills/` |
+| GitHub Copilot 支持代理的界面 | `--client copilot` | `~/.copilot/skills/` | `.github/skills/` |
+| Gemini CLI | `--client gemini` | `~/.gemini/skills/` | `.gemini/skills/` |
+| OpenCode | `--client opencode` | `~/.config/opencode/skills/` | `.opencode/skills/` |
+
+安装器会在这些目录下创建 `cetus-pbs/`。个人安装支持 `CLAUDE_CONFIG_DIR`、`DSH_HOME` 和 `XDG_CONFIG_HOME`。部分客户端还会读取 `.agents/skills/`，同一客户端会扫描的不同目录应避免安装不同版本。
+
+自动检测优先使用 Codex/Claude 当前会话标记，再检查 PATH 中的程序名称。桌面应用可能没有命令入口，此时直接指定客户端即可。`--client all` 为表中的全部适配器安装文件，也支持在安装应用前准备技能。
+
+其他客户端先查明其官方技能目录，然后直接指定：
+
+```bash
+bash scripts/install.sh --skills-dir /path/to/client/skills
+```
+
+这会创建 `/path/to/client/skills/cetus-pbs/`。`--skills-dir` 单独使用，不与 `--client`、`--project` 混用，可接入自定义技能目录和后续新增的 Agent Skills 客户端。安装后重开代理会话，查看技能列表并要求加载 `cetus-pbs`，确认能够读取 SSH/PBS 参考文件并解析 `assets/job.pbs`，再安排真实任务。客户端版本、工作区信任和管理员设置可能影响发现过程。
+
+手动安装时，把仓库的整个 `skills/cetus-pbs/` 复制到宿主技能目录，保留 `references/` 和 `assets/`。客户端支持技能压缩包导入时，按它的官方打包及导入流程操作。仅复制 `SKILL.md` 会缺少 PBS 模板和操作参考。
+
+普通 Claude 聊天、Cowork 和纯云端会话采用不同于本地 Claude Code 的分发方式。本地安装也不会自动传到云端代理或远端 IDE 工作进程。请按宿主支持的导入方式接入，并保证实际执行环境遵守本地运行代理、Cetus 运行计算的边界。
+
+## 可选的客户端准备
+
+已有桌面应用或 IDE 扩展时，按产品官方流程安装并登录即可。本仓库安装器只复制技能文件，不负责安装 AI 应用、添加 SSH 密钥或登录模型服务。
+
+需要在 Linux/macOS 上准备终端客户端或 Harness Web 界面时，可使用以下命令。选择需要的客户端，完成后再运行技能安装器。Windows 命令见 [Windows 指南](windows.zh-CN.md)。
+
+| 客户端 | 安装或启动 | 登录 |
+| --- | --- | --- |
+| Codex，需支持的 Node.js/npm | `npm install -g --prefix "$HOME/.local" @openai/codex` | `codex login` |
+| Claude Code | `curl -fsSL https://claude.ai/install.sh \| bash` | `claude auth login` |
+| DeepSeek Harness | `npx @deepseek-ai/dsh web` | 在本地 Web 界面配置模型服务。 |
+
+Harness 0.2.2-rc.5 要求 Node.js ≥24.9.0，安装前应检查当前包的版本要求。本次实测使用 Node 24.22.3。安装到 `~/.local/bin` 时，按需执行 `export PATH="$HOME/.local/bin:$PATH"`。Codex 应使用完整官方安装包，单独复制可执行文件可能缺少所需组件。
+
+相同技能安装会跳过，有变化则先备份到 `skills/` 同级的 `skill-backups/`。各客户端独立更新；多客户端安装中途遇到错误时，修复提示的问题后重新运行即可。
+
+## 验证范围
+
+已在隔离 Linux home 中安装 Codex CLI 0.172.0、Claude Code 2.1.332 和 Harness 0.2.2-rc.5。Codex 与 Claude 实际向本地协议测试端点发送了完整技能正文和模板引用；Harness 的 Web 界面启动成功，其发布包中的文件技能加载器也成功发现并读取了完整技能。这些检查使用真实客户端代码，没有使用外部模型凭据或模型推理。
+
+Cursor、Copilot、Gemini 和 OpenCode 的目录映射依据官方文档；当前环境尚未执行这些桌面或 IDE 客户端以及原生 Windows 加载测试。安装器目录测试和真实客户端加载测试会分别记录。
+
+[查看验证记录](validation.md)
+
+## 官方参考
+
+- [Codex 技能](https://learn.chatgpt.com/docs/build-skills)
+- [Claude Code 技能](https://code.claude.com/docs/en/skills)
+- [Harness 技能发现](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/skills.md)
+- [Cursor 技能](https://prod.cursor.com/docs/skills)
+- [Copilot 技能](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills)
+- [Gemini 技能](https://geminicli.com/docs/cli/skills/)
+- [OpenCode 技能](https://opencode.ai/docs/skills/)
