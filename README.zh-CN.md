@@ -39,6 +39,23 @@ claude auth login
 
 [官方安装说明](https://code.claude.com/docs/en/setup)
 
+## 自动安装技能
+
+克隆仓库后，在本地运行：
+
+```bash
+bash scripts/install.sh --client both
+# 或选择单个 CLI
+bash scripts/install.sh --client codex
+bash scripts/install.sh --client claude
+# 安装到已有的研究项目
+bash scripts/install.sh --client both --project /path/to/research-repo
+# 更新已安装副本，保留备份
+bash scripts/install.sh --client both --update
+```
+
+脚本安装技能文件，CLI 本体安装和账号登录见上文。请在本地工作站运行，脚本会拒绝常见 Cetus 主机名和 PBS 分配环境。已有技能需显式加 --update，备份保存在同级隐藏目录。多客户端安装遇到文件系统错误时可能只完成其中一个，请根据输出路径检查后重试。
+
 ## 安装技能
 
 在本地克隆仓库：

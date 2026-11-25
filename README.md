@@ -39,6 +39,23 @@ Persist the PATH setting in your local shell configuration when necessary. Accou
 
 [Official installation](https://code.claude.com/docs/en/setup)
 
+## Automatic skill installation
+
+After cloning, run locally:
+
+```bash
+bash scripts/install.sh --client both
+# Or choose one client
+bash scripts/install.sh --client codex
+bash scripts/install.sh --client claude
+# Install into an existing research project
+bash scripts/install.sh --client both --project /path/to/research-repo
+# Update an installed copy, preserving a backup
+bash scripts/install.sh --client both --update
+```
+
+This script installs the skill files. CLI installation and account authentication follow the instructions above. It refuses common Cetus hostnames and PBS allocations; run it on your own local workstation. Existing skills require explicit --update. Backups are kept in a hidden sibling directory. For a multi-client installation, filesystem failures can leave one client updated before the other; inspect the printed paths before retrying.
+
 ## Install the skill
 
 Clone this repository locally:
