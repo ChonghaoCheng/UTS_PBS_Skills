@@ -41,9 +41,11 @@ Persist the PATH setting in your local shell configuration when necessary. Accou
 
 ## Automatic skill installation
 
-After cloning, run locally:
+Clone the repository and install locally:
 
 ```bash
+git clone git@github.com:ChonghaoCheng/UTS_PBS_Skills.git
+cd UTS_PBS_Skills
 bash scripts/install.sh --client both
 # Or choose one client
 bash scripts/install.sh --client codex
@@ -56,14 +58,9 @@ bash scripts/install.sh --client both --update
 
 This script installs the skill files. CLI installation and account authentication follow the instructions above. It refuses common Cetus hostnames and PBS allocations; run it on your own local workstation. Existing skills require explicit --update. Backups are kept in a hidden sibling directory. For a multi-client installation, filesystem failures can leave one client updated before the other; inspect the printed paths before retrying.
 
-## Install the skill
+## Manual skill installation
 
-Clone this repository locally:
-
-```bash
-git clone git@github.com:ChonghaoCheng/UTS_PBS_Skills.git
-cd UTS_PBS_Skills
-```
+From the cloned repository, choose the relevant client.
 
 Choose the relevant installation. Inspect or back up an existing destination before copying.
 
