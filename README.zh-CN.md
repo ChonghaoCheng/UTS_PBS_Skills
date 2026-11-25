@@ -59,7 +59,7 @@ bash scripts/install.sh --skills-dir /path/to/client/skills
 
 所有适配器使用同一份 `SKILL.md`、参考文档和 PBS 模板。代理需要读取本地文件并调用 SSH、文件传输工具。技能安装到代理实际运行的环境，包括 WSL 或远程 IDE 的工作环境。本地安装不会自动同步到其他电脑或云端工作进程。
 
-详见[客户端准备与发现路径](docs/clients.zh-CN.md)及 [Windows 原生 / WSL 2 指南](docs/windows.zh-CN.md)。已有桌面或 IDE 客户端时，可以直接使用技能。
+详见[客户端兼容性](docs/clients.zh-CN.md)及 [Windows 原生 / WSL 2 指南](docs/windows.zh-CN.md)。已有桌面或 IDE 客户端时，可以直接使用技能。
 
 ## 使用
 

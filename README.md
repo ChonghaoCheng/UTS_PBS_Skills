@@ -59,7 +59,7 @@ bash scripts/install.sh --skills-dir /path/to/client/skills
 
 The same `SKILL.md`, references and PBS template are used by every adapter. The agent needs local file access and tools for SSH and file transfer. Install into the environment where it runs, including WSL or a remote IDE workspace when applicable. Local installation does not automatically sync to another computer or cloud worker.
 
-See [client setup and discovery paths](docs/clients.md) and the [Windows native / WSL 2 guide](docs/windows.md). Existing desktop and IDE clients can use the skill without installing a terminal edition.
+See [client compatibility](docs/clients.md) and the [Windows native / WSL 2 guide](docs/windows.md). Existing desktop and IDE clients can use the skill without installing a terminal edition.
 
 ## Use
 

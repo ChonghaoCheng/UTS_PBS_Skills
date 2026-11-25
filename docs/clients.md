@@ -30,22 +30,6 @@ For manual installation, copy the entire `skills/cetus-pbs/` folder from this re
 
 Ordinary Claude chat/Cowork and cloud-only sessions have different upload/distribution mechanisms from local Claude Code. Likewise, local installation does not automatically install a skill in a cloud agent or remote IDE worker. Follow the host's supported import procedure and ensure its execution environment complies with the local-agent/Cetus-computation boundary.
 
-## Optional client setup
-
-Use an existing desktop app or IDE integration, installed and signed in through its product's official setup. Installing this skill only copies its files; it does not install an AI application, add SSH keys or sign into a provider.
-
-For a terminal client or Harness Web UI on Linux/macOS, the following setup commands are available. Choose the client you want, then run the skill installer. Windows commands are in the [Windows guide](windows.md).
-
-| Client | Install or launch | Sign in |
-| --- | --- | --- |
-| Codex, with supported Node.js/npm | `npm install -g --prefix "$HOME/.local" @openai/codex` | `codex login` |
-| Claude Code | `curl -fsSL https://claude.ai/install.sh \| bash` | `claude auth login` |
-| DeepSeek Harness | `npx @deepseek-ai/dsh web` | Configure the provider in the local Web UI. |
-
-Harness 0.2.2-rc.5 requires Node.js ≥24.9.0; check the current package's engine requirement before installing. The validation used Node 24.22.3. Add `~/.local/bin` to PATH if needed with `export PATH="$HOME/.local/bin:$PATH"`. Use the complete official Codex package because copying a single executable can omit required components.
-
-Identical skill installs are skipped; changed copies are backed up under `skill-backups/` alongside `skills/`. Each client is updated independently. If a multi-client install stops partway, fix the reported issue and rerun.
-
 ## Verification status
 
 Codex CLI 0.172.0, Claude Code 2.1.332 and Harness 0.2.2-rc.5 were installed in an isolated Linux home. Codex and Claude sent the complete installed skill body and asset reference to a local protocol test endpoint. Harness launched its Web UI and its shipped filesystem provider discovered and loaded the complete skill. These checks exercised real client code without external model credentials or inference.

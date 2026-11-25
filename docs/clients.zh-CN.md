@@ -30,22 +30,6 @@ bash scripts/install.sh --skills-dir /path/to/client/skills
 
 普通 Claude 聊天、Cowork 和纯云端会话采用不同于本地 Claude Code 的分发方式。本地安装也不会自动传到云端代理或远端 IDE 工作进程。请按宿主支持的导入方式接入，并保证实际执行环境遵守本地运行代理、Cetus 运行计算的边界。
 
-## 可选的客户端准备
-
-已有桌面应用或 IDE 扩展时，按产品官方流程安装并登录即可。本仓库安装器只复制技能文件，不负责安装 AI 应用、添加 SSH 密钥或登录模型服务。
-
-需要在 Linux/macOS 上准备终端客户端或 Harness Web 界面时，可使用以下命令。选择需要的客户端，完成后再运行技能安装器。Windows 命令见 [Windows 指南](windows.zh-CN.md)。
-
-| 客户端 | 安装或启动 | 登录 |
-| --- | --- | --- |
-| Codex，需支持的 Node.js/npm | `npm install -g --prefix "$HOME/.local" @openai/codex` | `codex login` |
-| Claude Code | `curl -fsSL https://claude.ai/install.sh \| bash` | `claude auth login` |
-| DeepSeek Harness | `npx @deepseek-ai/dsh web` | 在本地 Web 界面配置模型服务。 |
-
-Harness 0.2.2-rc.5 要求 Node.js ≥24.9.0，安装前应检查当前包的版本要求。本次实测使用 Node 24.22.3。安装到 `~/.local/bin` 时，按需执行 `export PATH="$HOME/.local/bin:$PATH"`。Codex 应使用完整官方安装包，单独复制可执行文件可能缺少所需组件。
-
-相同技能安装会跳过，有变化则先备份到 `skills/` 同级的 `skill-backups/`。各客户端独立更新；多客户端安装中途遇到错误时，修复提示的问题后重新运行即可。
-
 ## 验证范围
 
 已在隔离 Linux home 中安装 Codex CLI 0.172.0、Claude Code 2.1.332 和 Harness 0.2.2-rc.5。Codex 与 Claude 实际向本地协议测试端点发送了完整技能正文和模板引用；Harness 的 Web 界面启动成功，其发布包中的文件技能加载器也成功发现并读取了完整技能。这些检查使用真实客户端代码，没有使用外部模型凭据或模型推理。
