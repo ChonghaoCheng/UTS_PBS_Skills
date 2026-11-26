@@ -6,22 +6,27 @@
 
 ## Windows 原生客户端
 
-Codex 桌面应用、Cursor、VS Code Copilot 等已安装时，可直接安装技能。使用本仓库自动安装器需要 Git for Windows 提供的 Git Bash。Git 默认安装路径为 `C:\Program Files\Git\bin\bash.exe`，自定义安装位置需调整下面命令。
-
-在 PowerShell 执行，示例选择 Codex：
+Codex 桌面应用、Antigravity、Cursor、VS Code Copilot 等已安装时，可直接安装技能。使用本仓库自动安装器需要 Git for Windows 提供的 Git Bash。下面 PowerShell 命令优先检查默认安装目录，若自定义了安装位置则自动从 PATH 中的 `git` 推断：
 
 ```powershell
 $gitBash = Join-Path $env:ProgramFiles 'Git\bin\bash.exe'
+if (-not (Test-Path $gitBash) -and ($git = Get-Command git -ErrorAction SilentlyContinue)) {
+    $gitBash = Join-Path (Split-Path (Split-Path $git.Source)) 'bin\bash.exe'
+}
 if (-not (Test-Path $gitBash)) { throw '请安装 Git for Windows，或填写正确的 Git Bash 路径。' }
 & $gitBash -lc 'curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash -s -- --client codex'
 if ($LASTEXITCODE -ne 0) { throw '技能安装失败，请检查上面的输出。' }
 ```
 
-按客户端替换 `--client codex`，例如 `claude`、`dsh`、`cursor`、`copilot`、`gemini`、`opencode`。从 Git Bash 启动时 Windows 桌面应用的会话标记可能不存在，显式指定最稳妥。检查输出路径是否位于自己的 Windows 个人目录，完成后重开客户端会话。
+按客户端替换 `--client codex`，例如 `claude`、`dsh`、`cursor`、`copilot`、`gemini`、`antigravity`、`opencode`。从 Git Bash 启动时 Windows 桌面应用的会话标记可能不存在，显式指定最稳妥。检查输出路径是否位于自己的 Windows 个人目录，完成后重开客户端会话。
 
 客户端按其产品官方说明安装和登录，技能适配方式见[客户端兼容性](clients.zh-CN.md)。已有桌面应用或 IDE 扩展时，直接安装技能即可。
 
-本仓库的 PBS 命令示例使用 Bash、SSH 和 rsync。原生客户端应通过本地 WSL 或其他已配置的 Bash/rsync 环境执行这些命令，或由代理改写为可用的 OpenSSH/scp 等价流程。Windows OpenSSH 的 SSH 配置位于 `$HOME\.ssh\config`；WSL 的配置在其自己的 `~/.ssh/config`，应分别验证连接。
+Windows 原生环境自带 OpenSSH（`ssh`）和 `tar`，但 Git for Windows 默认不含 `rsync`，PowerShell 中也没有 `ssh-copy-id`：
+
+- 首次在 PowerShell 注册公钥时（校外需先连接 UTS VPN），使用 [SSH 接入](../skills/cetus-pbs/references/ssh.md) 中的原生 PowerShell 公钥写入命令。
+- 本地没有 `rsync` 时，直接使用 [PBS 操作](../skills/cetus-pbs/references/pbs.md) 中的 `tar`-over-`ssh` 命令完成快照上传、回执拉取和结果回收，或通过本地 WSL 执行传输。
+- Windows OpenSSH 的 SSH 配置位于 `$HOME\.ssh\config`；WSL 的配置在其自己的 `~/.ssh/config`，应在实际提交环境分别验证连接。
 
 ## WSL 2
 

@@ -6,22 +6,27 @@ Use a native Windows client or run the client and task files inside WSL 2. Insta
 
 ## Native Windows clients
 
-An existing Codex desktop app, Cursor or VS Code Copilot can use the skill without a separate terminal client. The automatic Bash installer requires Git Bash from Git for Windows. Adjust the executable path if Git was installed outside its default location.
-
-Run in PowerShell, selecting Codex in this example:
+An existing Codex desktop app, Antigravity, Cursor or VS Code Copilot can use the skill without a separate terminal client. The automatic Bash installer requires Git Bash from Git for Windows. The PowerShell snippet below checks the default location and falls back to resolving `git` on PATH:
 
 ```powershell
 $gitBash = Join-Path $env:ProgramFiles 'Git\bin\bash.exe'
+if (-not (Test-Path $gitBash) -and ($git = Get-Command git -ErrorAction SilentlyContinue)) {
+    $gitBash = Join-Path (Split-Path (Split-Path $git.Source)) 'bin\bash.exe'
+}
 if (-not (Test-Path $gitBash)) { throw 'Install Git for Windows or set the correct Git Bash path.' }
 & $gitBash -lc 'curl -fsSL https://raw.githubusercontent.com/ChonghaoCheng/UTS_PBS_Skills/main/scripts/install.sh | bash -s -- --client codex'
 if ($LASTEXITCODE -ne 0) { throw 'Skill installation failed; inspect the output above.' }
 ```
 
-Choose `claude`, `dsh`, `cursor`, `copilot`, `gemini` or `opencode` for other adapters. Desktop session markers may be absent in Git Bash, so explicit selection is reliable. Verify the printed destination is in your Windows user directory, then reopen the client session.
+Choose `claude`, `dsh`, `cursor`, `copilot`, `gemini`, `antigravity` or `opencode` for other adapters. Desktop session markers may be absent in Git Bash, so explicit selection is reliable. Verify the printed destination is in your Windows user directory, then reopen the client session.
 
 Install and authenticate the client using its official setup instructions. See [client compatibility](clients.md) for skill adapters. An existing desktop app or IDE integration can install the skill directly.
 
-The PBS walkthrough uses Bash, SSH and rsync. Native clients should run those commands through local WSL or another configured Bash/rsync environment, or adapt transfers to an available OpenSSH/scp workflow. Windows OpenSSH reads `$HOME\.ssh\config`, while WSL reads its own `~/.ssh/config`; verify the connection in the actual submitting environment.
+Native Windows includes OpenSSH (`ssh`) and `tar`, while Git for Windows typically omits `rsync` and PowerShell lacks `ssh-copy-id`:
+
+- For first-time public-key enrollment in PowerShell, use the native OpenSSH enrollment command in [SSH access](../skills/cetus-pbs/references/ssh.md) (after connecting to UTS VPN when off campus).
+- For staging snapshots and collecting job outputs without local `rsync`, use the `tar`-over-`ssh` transfer commands in [PBS operations](../skills/cetus-pbs/references/pbs.md), or run transfers through local WSL.
+- Windows OpenSSH reads `$HOME\.ssh\config`, while WSL reads its own `~/.ssh/config`; verify the connection in the actual submitting environment.
 
 ## WSL 2
 

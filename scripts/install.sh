@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
     cat <<'HELP'
-Usage: bash scripts/install.sh [--client auto|codex|claude|dsh|cursor|copilot|gemini|opencode|both|all] [--project PATH] [--skills-dir PATH]
+Usage: bash scripts/install.sh [--client auto|codex|claude|dsh|cursor|copilot|gemini|antigravity|opencode|both|all] [--project PATH] [--skills-dir PATH]
 
 Default: detect the active Codex/Claude session, or installed clients on PATH.
 Identical copies are left alone. Changed copies are backed up and replaced.
@@ -38,7 +38,7 @@ while (($#)); do
         *) usage >&2; exit 2 ;;
     esac
 done
-case "$client" in auto|codex|claude|dsh|cursor|copilot|gemini|opencode|both|all) ;; *) usage >&2; exit 2 ;; esac
+case "$client" in auto|codex|claude|dsh|cursor|copilot|gemini|antigravity|opencode|both|all) ;; *) usage >&2; exit 2 ;; esac
 if [[ -n $skills_dir && ( -n $project || $client != auto ) ]]; then
     die 'Use --skills-dir by itself, without --client or --project.'
 fi
@@ -61,17 +61,21 @@ elif [[ $client == auto ]]; then
     elif [[ ${CLAUDECODE:-} == 1 ]]; then
         clients=(claude)
     else
-        for executable in codex claude dsh cursor copilot gemini opencode; do
+        for executable in codex claude dsh cursor copilot gemini agy opencode; do
             if command -v "$executable" >/dev/null 2>&1; then
-                clients+=("$executable")
+                if [[ $executable == agy ]]; then
+                    clients+=(antigravity)
+                else
+                    clients+=("$executable")
+                fi
             fi
         done
     fi
-    (( ${#clients[@]} > 0 )) || die 'No client detected. Choose --client codex, claude, dsh, cursor, copilot, gemini or opencode; or use --skills-dir PATH.'
+    (( ${#clients[@]} > 0 )) || die 'No client detected. Choose --client codex, claude, dsh, cursor, copilot, gemini, antigravity or opencode; or use --skills-dir PATH.'
 elif [[ $client == both ]]; then
     clients=(codex claude)
 elif [[ $client == all ]]; then
-    clients=(codex claude dsh cursor copilot gemini opencode)
+    clients=(codex claude dsh cursor copilot gemini antigravity opencode)
 else
     clients=("$client")
 fi
@@ -119,6 +123,7 @@ for required in SKILL.md references/ssh.md references/pbs.md assets/job.pbs; do
     [[ -s "$source_dir/$required" ]] || die "Incomplete skill source: $required"
 done
 
+seen_destinations=()
 for selected in "${clients[@]}"; do
     case "$selected" in
         codex) config_dir="$base/.agents" ;;
@@ -133,6 +138,9 @@ for selected in "${clients[@]}"; do
             config_dir="$base/.copilot"
             [[ -z $project ]] || config_dir="$base/.github" ;;
         gemini) config_dir="$base/.gemini" ;;
+        antigravity)
+            config_dir="$base/.gemini/config"
+            [[ -z $project ]] || config_dir="$base/.agents" ;;
         opencode)
             config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
             [[ -z $project ]] || config_dir="$base/.opencode" ;;
@@ -143,6 +151,15 @@ for selected in "${clients[@]}"; do
     mkdir -p -- "$target_root"
     parent=$(cd -- "$target_root" && pwd -P)
     destination="$parent/cetus-pbs"
+    already_handled=0
+    for prev in "${seen_destinations[@]+"${seen_destinations[@]}"}"; do
+        if [[ $prev == "$destination" ]]; then
+            already_handled=1
+            break
+        fi
+    done
+    (( already_handled == 0 )) || continue
+    seen_destinations+=("$destination")
     [[ ! $destination -ef $source_dir ]] || die "Destination is the source skill: $destination"
     candidate_lock="$parent/.cetus-pbs-install.lock"
     mkdir -- "$candidate_lock" 2>/dev/null || die "Another install may be running; inspect $candidate_lock before retrying."
@@ -166,4 +183,4 @@ for selected in "${clients[@]}"; do
     rmdir -- "$lock"
     lock=
 done
-printf '\nOpen a new agent session and ask it to load cetus-pbs. Codex: $cetus-pbs | Claude: /cetus-pbs\n'
+printf '\nOpen a new agent session and ask it to load cetus-pbs. Codex: $cetus-pbs | Claude/Antigravity: /cetus-pbs\n'

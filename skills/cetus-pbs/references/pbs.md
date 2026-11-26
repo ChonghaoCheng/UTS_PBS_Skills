@@ -26,12 +26,15 @@ cat >"$local_run/request.env" <<'REQUEST'
 # Demonstration values for this tiny shell task only. Size real jobs separately.
 REQUEST_SELECT=select=1:ncpus=1:mem=2gb
 REQUEST_WALLTIME=00:10:00
+# Optional per-run settings forwarded by the submission step when non-empty:
+# REQUEST_QUEUE=
+# CETUS_SCRATCH_ROOT=
 REQUEST
 cat >"$local_run/command.sh" <<'COMMAND'
 #!/bin/bash
 set -euo pipefail
 # Arguments: task index and private output directory.
-# Load the task's runtime and configure its processes/threads here when needed.
+# Non-interactive shell: initialize modules/conda and set thread counts here when needed.
 cat input.txt >"$2/output.txt"
 printf '%s\n' "$1" >"$2/task_index.txt"
 COMMAND
@@ -42,9 +45,16 @@ For a real task, replace the demonstration files and launcher with an independen
 
 If the task uses Git, record the selected revision and stage any required uncommitted/untracked files, submodules and actual Git LFS content. `git archive` captures committed files subject to export attributes; it is one snapshot option. Tasks without Git use file manifests/checksums. Required files and archive exclusions depend on the task; no universal `results/`, `runs/` or `logs/` exclusion is applied.
 
-The template has **no queue, CPU, memory or walltime directives**. Freeze the actual resource request in `request.env` before checksumming. The submission below passes those values to `qsub`. Add an approved queue (`-q`), GPU resources or other scheduler options only when required by the task and supported by the site. Inspect `qstat -Qf` for current limits; no queue-limit table is assumed to stay current.
+### Sizing queues, GPUs, node-local scratch and runtimes on Cetus
 
-For node-local work, use site-approved storage. The template uses an explicitly configured `CETUS_SCRATCH_ROOT`, otherwise the execution environment's `TMPDIR`, otherwise a private directory within the run. To select a different root for a particular job, set it in the copied job script before checksumming, or freeze and pass the specific variable with `qsub -v`. Check its accessibility and capacity; do not copy a previous user's scratch path. Configure application parallelism in `command.sh`, not by relying on a fixed thread count in the template.
+The template has **no queue, CPU, memory or walltime directives**. Freeze the actual resource request in `request.env` before generating `SHA256SUMS`:
+
+- **Queues and GPU requests**: Inspect `qstat -Qf` on Cetus to check live CPU queues, dedicated GPU queues (for example `*_gpuq` queues), maximum walltimes and resource chunk keys; no static queue-limit table is assumed to stay current. When a specific queue or GPU allocation is needed, freeze `REQUEST_QUEUE=<queue_name>` and include the site's GPU resource key in `REQUEST_SELECT` (for example `REQUEST_SELECT=select=1:ncpus=4:ngpus=1:mem=32gb` as an illustrative PBS Pro pattern—always match attributes shown by `qstat -Qf`).
+- **Home storage vs node-local `/scratch`**: Cetus `$HOME` (`/shared/homes/...`) is networked storage suited for frozen snapshots, scripts and durable outputs, whereas compute nodes typically expose fast local SSD scratch space (such as `/scratch`). `job.pbs` resolves its working directory from `CETUS_SCRATCH_ROOT`, then `TMPDIR`, then `$run` inside `$HOME`. For high-I/O jobs, large archive extraction or heavy dataset reads, verify that the node-local scratch root exists and is writable, then set `CETUS_SCRATCH_ROOT=/scratch` in `request.env` so scratch I/O stays off networked home storage. Write periodic checkpoints that must survive walltime termination directly to approved persistent storage.
+- **Non-interactive environment activation in `command.sh`**: PBS runs `command.sh` in a non-interactive Bash shell where interactive `~/.bashrc` setup may not be loaded:
+  - *Environment Modules*: initialize the `module` function if needed before loading modules (for example `[[ $(type -t module) == function ]] || source /etc/profile.d/modules.sh`, then `module load ...`).
+  - *Conda / Mamba*: source the installation's `etc/profile.d/conda.sh` before `conda activate <env>` (or invoke the environment's `bin/python` directly).
+  - *Process and thread limits*: export `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS` and data-loader worker counts in `command.sh` so total parallelism matches the requested `ncpus`.
 
 ## 2. Stage and submit once
 
@@ -66,25 +76,33 @@ set -euo pipefail
 cd "$HOME/cetus-runs/$1"
 sha256sum -c SHA256SUMS
 # Read only the frozen, inspected configuration for this run.
+unset REQUEST_SELECT REQUEST_WALLTIME REQUEST_QUEUE CETUS_SCRATCH_ROOT
 source request.env
 : "${REQUEST_SELECT:?Missing resource selection}"
 : "${REQUEST_WALLTIME:?Missing walltime}"
+qsub_args=(-N "$2" -l "$REQUEST_SELECT" -l "walltime=$REQUEST_WALLTIME")
+[[ -z ${REQUEST_QUEUE:-} ]] || qsub_args+=(-q "$REQUEST_QUEUE")
+[[ -z ${CETUS_SCRATCH_ROOT:-} ]] || qsub_args+=(-v "CETUS_SCRATCH_ROOT=$CETUS_SCRATCH_ROOT")
 mkdir submission
 mkdir pbs
-qsub -N "$2" -l "$REQUEST_SELECT" -l "walltime=$REQUEST_WALLTIME" \
-    -j oe -o "$PWD/pbs/" job.pbs >submission/job_id.tmp
+qsub "${qsub_args[@]}" -j oe -o "$PWD/pbs/" job.pbs >submission/job_id.tmp
 mv submission/job_id.tmp submission/job_id
 cat submission/job_id
 REMOTE
 ```
 
-The exclusive `submission/` marker prevents duplicate submission through this procedure. If `qsub` or the connection fails, retain that marker. Inspect `submission/job_id`, its temporary file and the scheduler's unique job name before deciding whether a new submission is necessary. Do not remove the marker and blindly repeat `qsub`.
-
-For independent batch tasks, replace the single invocation with an array request while retaining the same receipt/marker handling, for example:
+When the **local** submission machine lacks `rsync` (common in native Windows Git Bash or OpenSSH setups without WSL), replace the `rsync -a` upload line above with `tar` over `ssh` (after validating `$run_id`):
 
 ```bash
-qsub -J '1-25%5' -N "$2" -l "$REQUEST_SELECT" -l "walltime=$REQUEST_WALLTIME" \
-    -j oe -o "$PWD/pbs/" job.pbs >submission/job_id.tmp
+tar -C "$local_run" -cf - . | ssh cetus "tar -C \"\$HOME/cetus-runs/$run_id\" -xf -"
+```
+
+The exclusive `submission/` marker prevents duplicate submission through this procedure. If `qsub` or the connection fails, retain that marker. Inspect `submission/job_id`, its temporary file and the scheduler's unique job name before deciding whether a new submission is necessary. Do not remove the marker and blindly repeat `qsub`.
+
+For independent batch tasks, replace the single invocation with an array request while retaining the same receipt/marker and optional `qsub_args` handling, for example:
+
+```bash
+qsub -J '1-25%5' "${qsub_args[@]}" -j oe -o "$PWD/pbs/" job.pbs >submission/job_id.tmp
 ```
 
 This range is an example: use the actual task indices, concurrency cap and current queue limits. Freeze an index-to-task mapping with the inputs and arguments for each task. The demonstration launcher only records its index; replace it with the appropriate lookup for real batch work. Resources are requested per subjob. Separate tasks with different resource requirements into different arrays. Preserve outputs per index and attempt, including zero-based indices when used.
@@ -116,7 +134,20 @@ rsync -a -- "cetus:cetus-runs/$run_id/pbs/" "$collection/pbs/"
 cp "$observation/qstat.txt" "$collection/qstat.txt"
 ```
 
-For this shell demonstration, `output.txt` must contain `example input`, `task_index.txt` must match the task index, and worker/scheduler exits must be zero. For other tasks, use their expected outputs and success criteria. Metrics, checkpoints and domain-specific analysis apply only when the program produces or requires them. Use rsync filters for selected outputs when transferring everything would be excessive.
+When local `rsync` is unavailable, fetch the receipt and finished outputs with `tar` over `ssh` instead:
+
+```bash
+# Receipt retrieval without local rsync:
+ssh cetus "tar -C \"\$HOME/cetus-runs/$run_id\" -cf - submission" | tar -C "$local_run" -xf -
+
+# Output and PBS log collection without local rsync:
+mkdir -p "$local_run/collections"
+collection=$(mktemp -d "$local_run/collections/collection-XXXXXXXX")
+ssh cetus "tar -C \"\$HOME/cetus-runs/$run_id\" -cf - tasks pbs" | tar -C "$collection" -xf -
+cp "$observation/qstat.txt" "$collection/qstat.txt"
+```
+
+For this shell demonstration, `output.txt` must contain `example input`, `task_index.txt` must match the task index, and worker/scheduler exits must be zero. For other tasks, use their expected outputs and success criteria. Metrics, checkpoints and domain-specific analysis apply only when the program produces or requires them. Use rsync filters (or selective `tar` paths) for selected outputs when transferring everything would be excessive.
 
 The template verifies its checksum manifest and creates a private working directory and a unique per-index attempt. It copies regular output files back, then removes only its private working directory after successful transfer. A transfer error retains that directory and returns a nonzero worker exit. Node-local storage can be lost after a job ends, and hard kills can prevent final writeback. Programs needing durable progress should write important outputs/checkpoints to approved persistent storage during execution.
 

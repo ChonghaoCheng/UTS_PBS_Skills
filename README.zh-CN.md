@@ -26,24 +26,24 @@
 
 只有启动命令、必需输入、SSH 身份或资源需求等执行必需的信息无法确定时，才集中询问。账号、连接别名、工作路径、软件环境、队列和资源申请均从当前任务与环境确定。首次测试或最小任务只在用户要求或同意时执行。
 
-可在同一句补充任务范围、输出要求或“先检查配置，暂不提交”。Codex 可显式使用 `$cetus-pbs`，Claude Code 可使用 `/cetus-pbs`。
+可在同一句补充任务范围、输出要求或“先检查配置，暂不提交”。Codex 可显式使用 `$cetus-pbs`，Claude Code 与 Antigravity 可使用 `/cetus-pbs`。
 
 ## 技能内容
 
-技能包包含 `SKILL.md` 操作规约、SSH/PBS 参考文档和 `job.pbs` 作业模板。助手结合当前任务配置，通过 SSH、rsync 和 PBS 原生命令执行以下流程：
+技能包包含 `SKILL.md` 操作规约、SSH/PBS 参考文档和 `job.pbs` 作业模板。助手结合当前任务配置，通过 SSH、rsync（本地缺少 `rsync` 时支持 `tar`-over-`ssh`）和 PBS 原生命令执行以下流程：
 
 | 功能 | 内容 |
 | --- | --- |
-| SSH 接入 | 复用连接配置，指导密钥认证与连接复用，诊断网络和权限问题 |
+| SSH 接入 | 复用连接配置，拆分首次密钥生成与用户终端交互授权，检查校园网/UTS VPN 前提，诊断权限与连接复用问题 |
 | 任务准备 | 读取启动命令与配置，按请求范围准备独立的文件快照、启动脚本和 `run_id`，使用 Git 时记录适用版本 |
-| 资源配置 | 根据已有设置、实测开销和队列限制配置 CPU、内存与运行时长，使进程和线程数量与资源申请一致 |
+| 资源配置 | 根据已有设置、实测开销和 `qstat -Qf` 限制配置队列、CPU、内存、GPU 与运行时长，显式初始化非交互运行时并对齐线程数 |
 | 提交与监控 | 保存 PBS Job ID 和提交回执，防止重复提交，按设定间隔及截止时间查询任务与数组子任务状态 |
 | 批量任务 | 将多组独立任务组织为带并发上限的 Job Array，按任务索引分别记录配置、日志和结果 |
-| 文件与存储 | 确定任务输入、输出和可写目录，按需记录校验值、使用获准的节点本地暂存空间，并保存需持久保留的文件 |
-| 输出回收 | 收集日志和任务要求的输出，核对调度器及程序退出状态；指标检查和专业分析按任务需要执行 |
+| 文件与存储 | 确定任务输入、输出和可写目录，记录校验值，高 I/O 负载核实并使用节点本地暂存盘（如 `/scratch`），保留需持久保存的文件 |
+| 输出回收 | 通过 `rsync` 或 `tar`-over-`ssh` 收集日志和输出，核对调度器及程序退出状态；指标检查和专业分析按任务需要执行 |
 | 失败恢复 | 区分程序、环境、数据暂存和传输故障，单独重跑已定位的失败项，保留原始结果及父运行记录 |
 
-配套模板通过 `qsub -l` 接收任务资源申请，不预设队列、CPU、内存或运行时长。应用线程数和工作目录也按任务与执行环境配置；参考文档中的数值和目录名均为演示示例。
+配套模板通过 `qsub` 参数接收任务资源申请，不预设队列、CPU、内存或运行时长。应用线程数、非交互环境加载和工作目录均按任务与执行环境配置；参考文档中的数值和目录名均为演示示例。
 
 ## 手动安装
 
@@ -75,8 +75,8 @@ bash scripts/install.sh --client codex
 | 参数 | 行为 |
 | --- | --- |
 | 无参数或 `--client auto` | 自动选择客户端，默认安装到个人技能目录 |
-| `--client NAME` | 指定 `codex`、`claude`、`dsh`、`cursor`、`copilot`、`gemini` 或 `opencode` |
-| `--client all` | 为全部七个内置适配器安装技能 |
+| `--client NAME` | 指定 `codex`、`claude`、`dsh`、`cursor`、`copilot`、`gemini`、`antigravity` 或 `opencode` |
+| `--client all` | 为全部八个内置适配器安装技能 |
 | `--project PATH` | 安装到已存在的项目目录，可与 `--client` 配合使用 |
 | `--skills-dir PATH` | 指定其他宿主的技能目录，单独使用，不与 `--client`、`--project` 混用 |
 | `--help` | 输出完整参数说明 |
@@ -98,8 +98,8 @@ bash scripts/install.sh --client codex
 | 文件 | 用途 |
 | --- | --- |
 | [SKILL.md](skills/cetus-pbs/SKILL.md) | 技能入口与执行规约 |
-| [SSH 接入](skills/cetus-pbs/references/ssh.md) | 连接配置与认证诊断 |
-| [PBS 操作](skills/cetus-pbs/references/pbs.md) | 文件快照、资源申请、提交、数组、监控、回收与取消 |
+| [SSH 接入](skills/cetus-pbs/references/ssh.md) | 连接前提、密钥注册与认证诊断 |
+| [PBS 操作](skills/cetus-pbs/references/pbs.md) | 文件快照、队列/GPU、节点暂存、提交、数组、监控与回收 |
 | [job.pbs](skills/cetus-pbs/assets/job.pbs) | 可复用的 PBS 作业模板 |
 | [客户端兼容性](docs/clients.zh-CN.md) | 宿主适配与技能发现方式 |
 | [Windows 指南](docs/windows.zh-CN.md) | Windows 原生与 WSL 2 安装和使用 |

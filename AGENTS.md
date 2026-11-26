@@ -4,7 +4,7 @@
 
 A one-sentence installation request is sufficient to start. Infer the current host, operating system and execution environment from the session and available tools. Read the installer before running it. For a URL-only request, fetch the repository or standalone installer over HTTPS.
 
-Install in the user's submission environment, outside Cetus. Choose `--client codex|claude|dsh|cursor|copilot|gemini|opencode` for the actual host. For another host, consult its documented discovery path and use `--skills-dir PATH`. Desktop applications need not have a terminal executable. Use personal scope unless the user requests a project scope; `--project` requires an existing directory. On Windows, read `docs/windows.md` and distinguish Windows and WSL homes.
+Install in the user's submission environment, outside Cetus. Choose `--client codex|claude|dsh|cursor|copilot|gemini|antigravity|opencode` for the actual host. For another host, consult its documented discovery path and use `--skills-dir PATH`. Desktop applications need not have a terminal executable. Use personal scope unless the user requests a project scope; `--project` requires an existing directory. On Windows, read `docs/windows.md` and distinguish Windows and WSL homes.
 
 Resolve routine choices without asking the user to select flags, clone the repository or supply a discoverable destination. Ask only for missing information that affects the installation. Do not install another AI application or change SSH credentials as a side effect. Identical installs are skipped and changed copies are backed up automatically.
 
